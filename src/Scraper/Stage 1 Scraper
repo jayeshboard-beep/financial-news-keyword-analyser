@@ -1,1 +1,157 @@
+# crawler.py
 
+import requests
+import re
+from datetime import datetime
+
+class Downloader:
+    """Handles HTTP requests and fetching HTML content"""
+    
+    def __init__(self, timeout=10):
+        self.timeout = timeout
+    
+    def fetch(self, url):
+        """
+        Fetch HTML content from a URL
+        Returns: HTML string or None if failed
+        """
+        # TODO: Implement this
+        # Hints: 
+        # - Use requests.get()
+        # - Handle exceptions (connection errors, timeouts)
+        # - Check response status code
+        # - Return response.text if successful
+        pass
+
+
+class HTMLParser:
+    """Custom HTML parser to extract headlines"""
+    
+    def extract_headlines(self, html):
+        """
+        Extract headlines from HTML using regex/string methods
+        Returns: List of headline strings
+        """
+        # TODO: Implement this
+        # Hints:
+        # - Use regex to find <h1>, <h2>, <h3> tags
+        # - Pattern: r'<h[1-3][^>]*>(.*?)</h[1-3]>'
+        # - May also want to look for <title>, article headlines
+        # - Strip HTML tags from extracted text
+        # - Clean up whitespace
+        pass
+    
+    def strip_html_tags(self, text):
+        """Remove HTML tags from text"""
+        # TODO: Implement this
+        # Hint: Use regex to remove anything between < and >
+        pass
+
+
+class Spider:
+    """Coordinates parsing and keyword matching"""
+    
+    def __init__(self, keywords):
+        self.keywords = [k.lower() for k in keywords]  # normalize to lowercase
+        self.parser = HTMLParser()
+    
+    def parse(self, html, url):
+        """
+        Parse HTML and find headlines containing keywords
+        Returns: List of dicts with matched headlines
+        """
+        # TODO: Implement this
+        # Steps:
+        # 1. Use HTMLParser to extract all headlines
+        # 2. For each headline, check if it contains keywords
+        # 3. If match found, create result dict with:
+        #    - headline, url, matched_keywords, timestamp
+        # 4. Return list of all matches
+        pass
+    
+    def _contains_keyword(self, text):
+        """
+        Check if text contains any keyword
+        Returns: List of matched keywords or empty list
+        """
+        # TODO: Implement keyword matching logic
+        # Hints:
+        # - Normalize text to lowercase
+        # - Check if each keyword appears in text
+        # - Consider word boundaries (avoid partial matches)
+        # - Return which keywords matched
+        pass
+
+
+class Scheduler:
+    """Manages URL queue and coordinates crawling"""
+    
+    def __init__(self):
+        self.visited = set()  # Track processed URLs
+        self.queue = []       # URLs to process
+    
+    def add_url(self, url):
+        """Add URL to queue if not already visited"""
+        # TODO: Implement this
+        # Hints:
+        # - Check if url already in visited
+        # - If not, add to queue
+        pass
+    
+    def get_next_url(self):
+        """Get next URL from queue"""
+        # TODO: Implement this
+        # Hints:
+        # - Pop from queue
+        # - Mark as visited
+        # - Return the URL
+        pass
+    
+    def is_empty(self):
+        """Check if queue is empty"""
+        return len(self.queue) == 0
+
+
+def clean_and_present(results):
+    """Clean and format results for display"""
+    # TODO: Implement this
+    # Hints:
+    # - Remove duplicate headlines
+    # - Format nicely for console output
+    # - Maybe sort by matched keywords?
+    # - Print count of matches found
+    pass
+
+
+# Main execution
+if __name__ == "__main__":
+    # Configuration
+    SEED_URL = "https://example-news-site.com"  # Replace with your target
+    KEYWORDS = ['Tesla', 'SpaceX', 'Rivian', 'Apple', 'Google']
+    
+    # Initialize components
+    scheduler = Scheduler()
+    downloader = Downloader()
+    spider = Spider(KEYWORDS)
+    
+    # Stage 1: Single URL crawl
+    scheduler.add_url(SEED_URL)
+    
+    all_results = []
+    
+    while not scheduler.is_empty():
+        url = scheduler.get_next_url()
+        print(f"Crawling: {url}")
+        
+        # Download
+        html = downloader.fetch(url)
+        if html is None:
+            print(f"Failed to fetch {url}")
+            continue
+        
+        # Parse and extract
+        results = spider.parse(html, url)
+        all_results.extend(results)
+    
+    # Present results
+    clean_and_present(all_results)
