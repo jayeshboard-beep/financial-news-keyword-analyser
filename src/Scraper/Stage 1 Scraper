@@ -1,8 +1,5 @@
-# crawler.py
 
-import requests
-import re
-from datetime import datetime
+
 
 # crawler.py
 
@@ -52,29 +49,21 @@ print(f"Result: {html}")  # Should be None
 
 
 
+
+
 class HTMLParser:
-    """Custom HTML parser to extract headlines"""
     
+
     def extract_headlines(self, html):
-        """
-        Extract headlines from HTML using regex/string methods
-        Returns: List of headline strings
-        """
-        # TODO: Implement this
-        # Hints:
-        # - Use regex to find <h1>, <h2>, <h3> tags
-        # - Pattern: r'<h[1-3][^>]*>(.*?)</h[1-3]>'
-        # - May also want to look for <title>, article headlines
-        # - Strip HTML tags from extracted text
-        # - Clean up whitespace
-        pass
+        """Extract h1, h2, h3 headlines from HTML"""
+        pattern = r'<h[1-3][^>]*>(.*?)</h[1-3]>'
+        matches = re.findall(pattern, html)
+        return matches
     
     def strip_html_tags(self, text):
         """Remove HTML tags from text"""
-        # TODO: Implement this
-        # Hint: Use regex to remove anything between < and >
+        # TODO: Implement this next
         pass
-
 
 class Spider:
     """Coordinates parsing and keyword matching"""
