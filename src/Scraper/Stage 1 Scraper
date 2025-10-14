@@ -4,24 +4,52 @@ import requests
 import re
 from datetime import datetime
 
+# crawler.py
+
+import requests
+import re
+from datetime import datetime
+
 class Downloader:
     """Handles HTTP requests and fetching HTML content"""
     
-    def __init__(self, timeout=10):
+    def __init__(self, timeout=10,):
         self.timeout = timeout
     
     def fetch(self, url):
-        """
-        Fetch HTML content from a URL
-        Returns: HTML string or None if failed
-        """
-        # TODO: Implement this
-        # Hints: 
-        # - Use requests.get()
-        # - Handle exceptions (connection errors, timeouts)
-        # - Check response status code
-        # - Return response.text if successful
+
+        headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        #Requesting for the URL
+        try:
+            html = requests.get(url, timeout=self.timeout, headers=headers)
+            if html.status.code == 200:
+                return html.text 
+        #Identifying the error code if it does not return  
+            else:
+                print("Error: error code" ,response.status_code)
+                return None
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching {url}: {e}")  
+        return None
+            
         pass
+
+
+downloader = Downloader()
+
+# Test successful fetch
+html = downloader.fetch("https://quotes.toscrape.com/")
+if html:
+    print(f"Success! Got {len(html)} characters")
+    print(html[:200])  # Print first 200 chars
+
+# Test with invalid URL
+html = downloader.fetch("https://this-site-definitely-does-not-exist-12345.com")
+print(f"Result: {html}")  # Should be None
+
 
 
 class HTMLParser:
