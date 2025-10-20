@@ -48,7 +48,6 @@ html = downloader.fetch("https://this-site-definitely-does-not-exist-12345.com")
 print(f"Result: {html}")  # Should be None
 
 
-# parser.py
 import re
 import logging
 
@@ -62,66 +61,44 @@ class InvalidHTMLError(ParserError):
 
 
 class BaseParser:
-    """
-    Abstract base class for all HTML parsers.
-    Provides common utilities for HTML parsing and text cleaning.
-    Demonstrates: Inheritance, Abstraction, Code Reuse
-    """
+    
+    #Abstract base class for all HTML parsers.
+    #Provides common utilities for HTML parsing and text cleaning.
+    
     
     def __init__(self):
-        """Initialize parser with logging capability"""
+
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
     
     def extract(self, html):
-        """
-        Abstract method - must be implemented by subclasses.
-        This demonstrates polymorphism.
+
+        #Inputs:html content to parse
+        #Retruns extracted content 
         
-        Args:
-            html (str): HTML content to parse
-            
-        Returns:
-            list: Extracted content
-            
-        Raises:
-            NotImplementedError: If subclass doesn't implement this method
-        """
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement extract() method"
         )
     
     def strip_html_tags(self, text):
-        """
-        Remove all HTML tags from text.
-        Uses regex to match any content between < and >
+
+        #Remove all HTML tags from text.
+        #Inputs:Text containing HTML tags
+        #Returns Clean text withut HTML tags
+ 
         
-        Args:
-            text (str): Text containing HTML tags
-            
-        Returns:
-            str: Clean text without HTML tags
-        """
         if not text:
             return ""
         
-        # Remove HTML tags: matches <...> including attributes
+        # Remove HTML tags: matches <...> 
         clean = re.sub(r'<[^>]+>', '', text)
         return clean.strip()
     
     def clean_text(self, text):
-        """
-        Clean and normalize extracted text.
-        - Decodes HTML entities
-        - Normalizes whitespace
-        - Removes extra spaces
+
+            #Inputs :text (str): Raw extracted text
+            #Returns clean and normalised text 
         
-        Args:
-            text (str): Raw extracted text
-            
-        Returns:
-            str: Cleaned and normalized text
-        """
         if not text:
             return ""
         
@@ -139,15 +116,11 @@ class BaseParser:
         return text.strip()
     
     def validate_html(self, html):
-        """
-        Validate HTML input before processing.
-        
-        Args:
-            html (str): HTML to validate
-            
-        Raises:
-            InvalidHTMLError: If HTML is None, empty, or too short
-        """
+
+        #Validate the HTML before forwarding it
+        #Input: HTML to validate
+        #Returns "InvalidHTMLError" if HTMl is too short or empty
+ 
         if html is None:
             raise InvalidHTMLError("HTML is None")
         
@@ -161,68 +134,45 @@ class BaseParser:
             raise InvalidHTMLError("HTML is too short to be valid")
 
 
+
 class HeadlineParser(BaseParser):
-    """
-    Parser for extracting headlines from HTML (Stage 1).
-    Extracts content from heading tags (h1, h2, h3, etc.)
-    
-    Demonstrates: Inheritance, Polymorphism, Dynamic Pattern Building
-    """
     
     def __init__(self, tags=None):
-        """
-        Initialize headline parser.
+
+
         
-        Args:
-            tags (list, optional): List of heading tags to extract.
-                                   Defaults to ['h1', 'h2', 'h3']
-        """
+         #Inputs:tags (list, optional): List of heading tags to extract(Defaults to ['h1', 'h2', 'h3']).
+                                   
+
         super().__init__()
         self.tags = tags or ['h1', 'h2', 'h3']
         self.logger.info(f"Initialized HeadlineParser with tags: {self.tags}")
     
     def extract(self, html):
-        """
-        Extract headlines from specified heading tags.
-        Uses backreference \\1 to match closing tag with opening tag.
-        
-        Args:
-            html (str): HTML content
-            
-        Returns:
-            list: List of cleaned headline strings
-            
-        Raises:
-            InvalidHTMLError: If HTML is invalid
-        """
-        # Validate input
+
+        #Extract headlines from specified heading tags.
+        #Inputs: Html
+        #Returns List of cleaned headline strings
+
+
+        #Finding the approriate header
         self.validate_html(html)
         
-        # Build dynamic regex pattern for specified tags
-        # Example: if tags = ['h1', 'h2'], pattern becomes '<(h1|h2)[^>]*>(.*?)</\\1>'
         tags_pattern = '|'.join(self.tags)
-        
-        # Pattern explanation:
-        # <(h1|h2|h3)  - Match opening tag, capture tag name in group 1
-        # [^>]*>       - Match any attributes until >
-        # (.*?)        - Capture content (non-greedy), group 2
-        # </\\1>       - Match closing tag that matches opening tag (backreference)
+    
         pattern = f'<({tags_pattern})[^>]*>(.*?)</\\1>'
         
-        # Find all matches (returns list of tuples: (tag, content))
         matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
         
         self.logger.info(f"Found {len(matches)} headline matches")
         
-        # Process and clean each match
+        # Process and clean the headers
         results = []
         for tag, content in matches:
-            # Remove nested HTML tags
             cleaned = self.strip_html_tags(content)
-            # Clean whitespace and entities
             cleaned = self.clean_text(cleaned)
             
-            # Only add non-empty headlines
+
             if cleaned:
                 results.append(cleaned)
         
@@ -231,43 +181,30 @@ class HeadlineParser(BaseParser):
 
 
 class ArticleParser(BaseParser):
-    """
-    Parser for extracting full article content (Stage 2).
-    Extracts content from <article> tags or specified container elements.
-    
-    Demonstrates: Inheritance, Polymorphism
-    """
-    
+
+    #Parser for extracting full article content
+ 
     def __init__(self, container_tag='article'):
-        """
-        Initialize article parser.
+      
         
-        Args:
-            container_tag (str): HTML tag that contains article content.
-                                 Defaults to 'article'
-        """
+       #Inputs: HTML that contains article content
+
+        
         super().__init__()
         self.container_tag = container_tag
         self.logger.info(f"Initialized ArticleParser with tag: {container_tag}")
     
     def extract(self, html):
-        """
-        Extract article content from container tags.
+
+       # Extract article content from container tags.
         
-        Args:
-            html (str): HTML content
+        #Input:HTML content  
+        #Returns  List of article content strings
+
             
-        Returns:
-            list: List of article content strings
-            
-        Raises:
-            InvalidHTMLError: If HTML is invalid
-        """
-        # Validate input
+    #Finding the text 
         self.validate_html(html)
         
-        # Pattern to match article container
-        # re.DOTALL makes . match newlines too
         pattern = f'<{self.container_tag}[^>]*>(.*?)</{self.container_tag}>'
         
         matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
@@ -288,10 +225,10 @@ class ArticleParser(BaseParser):
 
 class MetadataParser(BaseParser):
     """
-    Parser for extracting metadata from HTML (Stage 3).
-    Extracts meta tags, title, and other metadata.
+    Parser for extracting article category/type from HTML metadata.
+    Used in Stage 3 to classify articles for risk analysis.
     
-    Demonstrates: Inheritance, Polymorphism, Dictionary Return Type
+    Demonstrates: Inheritance, Polymorphism, Targeted Extraction
     """
     
     def __init__(self):
@@ -300,87 +237,66 @@ class MetadataParser(BaseParser):
         self.logger.info("Initialized MetadataParser")
     
     def extract(self, html):
-        """
-        Extract metadata from HTML meta tags and title.
-        
-        Args:
-            html (str): HTML content
+
+        #Extract article category/type from HTML metadata.
+        #Input:HTML content
+        #Returns: Article category/type or "Unknown" if not found
             
-        Returns:
-            dict: Dictionary of metadata key-value pairs
-            
-        Raises:
-            InvalidHTMLError: If HTML is invalid
-        """
-        # Validate input
+       
+       
+
         self.validate_html(html)
         
-        metadata = {}
+        # Try different meta tag patterns for category/section
+        category_patterns = [
+            r'<meta[^>]*name=["\']section["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']section["\']',
+            r'<meta[^>]*name=["\']category["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']category["\']',
+            r'<meta[^>]*property=["\']article:section["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*property=["\']article:section["\']',
+        ]
         
-        # Extract title
-        title_match = re.search(r'<title[^>]*>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
-        if title_match:
-            metadata['title'] = self.clean_text(title_match.group(1))
+        # Try each pattern until we find a match
+        for pattern in category_patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                category = self.clean_text(match.group(1))
+                self.logger.info(f"Found category: {category}")
+                return category
         
-        # Extract meta tags (name/content pairs)
-        # Matches: <meta name="description" content="...">
-        meta_pattern = r'<meta[^>]*name=["\']([^"\']*)["\'][^>]*content=["\']([^"\']*)["\']'
-        meta_matches = re.findall(meta_pattern, html, re.IGNORECASE)
-        
-        for name, content in meta_matches:
-            metadata[name] = self.clean_text(content)
-        
-        # Also try reversed order: <meta content="..." name="...">
-        meta_pattern_reversed = r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']([^"\']*)["\']'
-        meta_matches_reversed = re.findall(meta_pattern_reversed, html, re.IGNORECASE)
-        
-        for content, name in meta_matches_reversed:
-            if name not in metadata:  # Don't overwrite existing
-                metadata[name] = self.clean_text(content)
-        
-        self.logger.info(f"Extracted {len(metadata)} metadata items")
-        return metadata
+
+        self.logger.warning("No category metadata found")
+        return "Unknown"
 
 
 class LinkParser(BaseParser):
-    """
-    Parser for extracting links from HTML.
-    Useful for discovering new URLs to crawl.
+
+    #Parser for extracting links from HTML for discovering new URLs to crawl.
     
-    Demonstrates: Inheritance, URL Handling
-    """
     
     def __init__(self, base_url=None):
-        """
-        Initialize link parser.
+
         
-        Args:
-            base_url (str, optional): Base URL for resolving relative links
-        """
+        #Input: Base URL for resolving relative links
+
         super().__init__()
         self.base_url = base_url
         self.logger.info(f"Initialized LinkParser with base_url: {base_url}")
     
     def extract(self, html):
-        """
-        Extract all links (href attributes) from HTML.
-        
-        Args:
-            html (str): HTML content
+
+        #Extract all links (href attributes) from HTML.
+
+            #Input:html (str): HTML content
+            #Returns: List of URLs found in href attributes
             
-        Returns:
-            list: List of URLs found in href attributes
-            
-        Raises:
-            InvalidHTMLError: If HTML is invalid
-        """
-        # Validate input
+
+
         self.validate_html(html)
         
         # Pattern to match href attributes
-        # Matches: href="..." or href='...'
         pattern = r'href=["\']([^"\']*)["\']'
-        
         matches = re.findall(pattern, html, re.IGNORECASE)
         
         # Filter out empty links and anchors
@@ -388,7 +304,7 @@ class LinkParser(BaseParser):
         for link in matches:
             link = link.strip()
             
-            # Skip empty, javascript:, mailto:, tel:, and anchor links
+
             if not link or link.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
                 continue
             
@@ -396,99 +312,6 @@ class LinkParser(BaseParser):
         
         self.logger.info(f"Extracted {len(links)} links")
         return links
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Configure logging to see parser activity
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(name)s - %(levelname)s - %(message)s'
-    )
-    
-    # Sample HTML for testing
-    test_html = """
-    <html>
-    <head>
-        <title>Test Page - Tesla News</title>
-        <meta name="description" content="Latest Tesla updates">
-        <meta name="keywords" content="Tesla, Electric Cars">
-    </head>
-    <body>
-        <h1>Tesla Announces New Battery Technology</h1>
-        <h2>SpaceX Successfully Launches Starship</h2>
-        <h3>Apple Releases New iPhone</h3>
-        
-        <article>
-            <h2>Article Title</h2>
-            <p>This is article content about Tesla's innovation.</p>
-        </article>
-        
-        <a href="https://example.com/news">Read more</a>
-        <a href="/local-page">Local link</a>
-    </body>
-    </html>
-    """
-    
-    print("=" * 60)
-    print("TESTING PARSER SYSTEM - Demonstrating Polymorphism")
-    print("=" * 60)
-    
-    # Test 1: HeadlineParser
-    print("\n1. Testing HeadlineParser (Stage 1):")
-    print("-" * 60)
-    headline_parser = HeadlineParser(tags=['h1', 'h2', 'h3'])
-    headlines = headline_parser.extract(test_html)
-    for i, headline in enumerate(headlines, 1):
-        print(f"   {i}. {headline}")
-    
-    # Test 2: ArticleParser
-    print("\n2. Testing ArticleParser (Stage 2):")
-    print("-" * 60)
-    article_parser = ArticleParser()
-    articles = article_parser.extract(test_html)
-    for i, article in enumerate(articles, 1):
-        print(f"   {i}. {article[:80]}...")  # First 80 chars
-    
-    # Test 3: MetadataParser
-    print("\n3. Testing MetadataParser (Stage 3):")
-    print("-" * 60)
-    metadata_parser = MetadataParser()
-    metadata = metadata_parser.extract(test_html)
-    for key, value in metadata.items():
-        print(f"   {key}: {value}")
-    
-    # Test 4: LinkParser
-    print("\n4. Testing LinkParser:")
-    print("-" * 60)
-    link_parser = LinkParser(base_url="https://example.com")
-    links = link_parser.extract(test_html)
-    for i, link in enumerate(links, 1):
-        print(f"   {i}. {link}")
-    
-    # Test 5: Demonstrating Polymorphism
-    print("\n5. Demonstrating Polymorphism:")
-    print("-" * 60)
-    print("   All parsers inherit from BaseParser and implement extract()")
-    
-    parsers = [
-        ("Headlines", HeadlineParser()),
-        ("Articles", ArticleParser()),
-        ("Metadata", MetadataParser()),
-        ("Links", LinkParser())
-    ]
-    
-    for name, parser in parsers:
-        result = parser.extract(test_html)
-        print(f"   {name}: {type(result).__name__} with {len(result)} items")
-    
-    print("\n" + "=" * 60)
-    print("TESTING COMPLETE")
-    print("=" * 60)
-How to Use in Your Project:
-For Stage 1 (Your current focus):
-pythonfrom parser import HeadlineParser
-
 # In your Spider class
 class Spider:
     def __init__(self, keywords):
