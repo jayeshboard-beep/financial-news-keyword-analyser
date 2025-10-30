@@ -13,3 +13,62 @@ if __name__ == "__main__":
     # Test with invalid URL
     html = downloader.fetch("https://this-site-definitely-does-not-exist-12345.com")
     print(f"Result: {html}")
+
+
+
+
+
+#Parser tests
+# Initialize downloader
+downloader = Downloader()
+
+# Test 1: Download a real page and extract headlines
+print("\n--- TEST 1: HeadlineParser with Real HTML ---")
+html = downloader.fetch("https://quotes.toscrape.com/")
+
+if html:
+    parser = HeadlineParser(tags=['h1', 'h2', 'h3'])
+    headlines = parser.extract(html)
+    
+    print(f"\nExtracted {len(headlines)} headlines:")
+    for i, headline in enumerate(headlines, 1):
+        print(f"  {i}. {headline}")
+else:
+    print("Failed to download HTML")
+
+# Test 2: Extract links from the page
+print("\n--- TEST 2: LinkParser with Real HTML ---")
+if html:
+    link_parser = LinkParser(base_url="https://quotes.toscrape.com")
+    links = link_parser.extract(html)
+    
+    print(f"\nExtracted {len(links)} links:")
+    for i, link in enumerate(links[:10], 1):  # Show first 10
+        print(f"  {i}. {link}")
+    
+    if len(links) > 10:
+        print(f"  ... and {len(links) - 10} more links")
+
+# Test 3: Try with a financial news site (if not blocked)
+print("\n--- TEST 3: Testing with Financial Site ---")
+print("Attempting to fetch Reuters...")
+
+reuters_html = downloader.fetch("https://www.reuters.com")
+
+if reuters_html:
+    print(f"✅ Success! Downloaded {len(reuters_html)} characters")
+    
+    # Extract headlines
+    parser = HeadlineParser()
+    headlines = parser.extract(reuters_html)
+    print(f"Found {len(headlines)} headlines")
+    
+    # Show first 5
+    for i, headline in enumerate(headlines[:5], 1):
+        print(f"  {i}. {headline}")
+else:
+    print("❌ Reuters blocked or unavailable (might be school network)")
+
+print("\n" + "="*70)
+print("TESTING COMPLETE")
+print("="*70)
