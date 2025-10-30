@@ -5,13 +5,16 @@
 
 import requests
 import re
+import logging
+import html
 from datetime import datetime
 
+#Downloads all the URL's from The scheduler
 class Downloader:
-    """Handles HTTP requests and fetching HTML content"""
+
     
-    def __init__(self, timeout=10):
-        self.timeout = timeout
+    def __init__(self,):
+
     
     def fetch(self, url):
         headers = {
@@ -19,7 +22,7 @@ class Downloader:
         }
         
         try:
-            response = requests.get(url, timeout=self.timeout, headers=headers)
+            response = requests.get(url, headers=headers)
             
             # Fixed: status_code not status.code
             if response.status_code == 200:
@@ -33,25 +36,12 @@ class Downloader:
             return None
 
 
-# Test code
-if __name__ == "__main__":
-    downloader = Downloader()
-    
-    # Test successful fetch
-    html = downloader.fetch("https://quotes.toscrape.com/")
-    if html:
-        print(f"Success! Got {len(html)} characters")
-        print(html[:200])
-    
-    # Test with invalid URL
-    html = downloader.fetch("https://this-site-definitely-does-not-exist-12345.com")
-    print(f"Result: {html}")
 
-import re
-import logging
+
+
+#Base Parser for all errors
 
 class ParserError(Exception):
-    """Base exception for parser errors"""
     pass
 
 class InvalidHTMLError(ParserError):
@@ -102,12 +92,7 @@ class BaseParser:
             return ""
         
         # Decode common HTML entities
-        raw_html = raw_html.replace('&nbsp;', ' ')
-        raw_html = raw_html.replace('&amp;', '&')
-        raw_html = raw_html.replace('&lt;', '<')
-        raw_html = raw_html.replace('&gt;', '>')
-        raw_html = raw_html.replace('&quot;', '"')
-        raw_html = raw_html.replace('&#39;', "'")
+        raw_html = raw_html.unescape(encodedHtml)
         
         # Normalize whitespace: replace multiple spaces/newlines with single space
         raw_html = re.sub(r'\s+', ' ', raw_html)
