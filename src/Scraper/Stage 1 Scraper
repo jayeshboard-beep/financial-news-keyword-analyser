@@ -62,7 +62,7 @@ class InvalidHTMLError(ParserError):
 class BaseParser:
     
     #Abstract base class for all HTML parsers.
-    #Provides common utilities for HTML parsing and text cleaning.
+    #Provides common utilities for HTML parsing and raw_html cleaning.
     
     
     def __init__(self):
@@ -79,40 +79,40 @@ class BaseParser:
             f"{self.__class__.__name__} must implement extract() method"
         )
     
-    def strip_html_tags(self, text):
+    def strip_html_tags(self, raw_html):
 
-        #Remove all HTML tags from text.
-        #Inputs:Text containing HTML tags
-        #Returns Clean text withut HTML tags
+        #Remove all HTML tags from raw_html.
+        #Inputs:raw_html containing HTML tags
+        #Returns Clean raw_html withut HTML tags
  
         
-        if not text:
+        if not raw_html:
             return ""
         
         # Remove HTML tags: matches <...> 
-        clean = re.sub(r'<[^>]+>', '', text)
+        clean = re.sub(r'<[^>]+>', '', raw_html)
         return clean.strip()
     
-    def clean_text(self, text):
+    def clean_raw_html(self, raw_html):
 
-            #Inputs :text (str): Raw extracted text
-            #Returns clean and normalised text 
+            #Inputs :raw_html (str): Raw extracted raw_html
+            #Returns clean and normalised raw_html 
         
-        if not text:
+        if not raw_html:
             return ""
         
         # Decode common HTML entities
-        text = text.replace('&nbsp;', ' ')
-        text = text.replace('&amp;', '&')
-        text = text.replace('&lt;', '<')
-        text = text.replace('&gt;', '>')
-        text = text.replace('&quot;', '"')
-        text = text.replace('&#39;', "'")
+        raw_html = raw_html.replace('&nbsp;', ' ')
+        raw_html = raw_html.replace('&amp;', '&')
+        raw_html = raw_html.replace('&lt;', '<')
+        raw_html = raw_html.replace('&gt;', '>')
+        raw_html = raw_html.replace('&quot;', '"')
+        raw_html = raw_html.replace('&#39;', "'")
         
         # Normalize whitespace: replace multiple spaces/newlines with single space
-        text = re.sub(r'\s+', ' ', text)
+        raw_html = re.sub(r'\s+', ' ', raw_html)
         
-        return text.strip()
+        return raw_html.strip()
     
     def validate_html(self, html):
 
@@ -169,7 +169,7 @@ class HeadlineParser(BaseParser):
         results = []
         for tag, content in matches:
             cleaned = self.strip_html_tags(content)
-            cleaned = self.clean_text(cleaned)
+            cleaned = self.clean_raw_html(cleaned)
             
 
             if cleaned:
@@ -183,15 +183,15 @@ class ArticleParser(BaseParser):
 
     #Parser for extracting full article content
  
-    def __init__(self, container_tag='article'):
+    def __init__(self, article_htm='article'):
       
         
        #Inputs: HTML that contains article content
 
         
         super().__init__()
-        self.container_tag = container_tag
-        self.logger.info(f"Initialized ArticleParser with tag: {container_tag}")
+        self.article_html = article_html
+        self.logger.info(f"Initialized ArticleParser with tag: {article_html}")
     
     def extract(self, html):
 
@@ -201,10 +201,10 @@ class ArticleParser(BaseParser):
         #Returns  List of article content strings
 
             
-    #Finding the text 
+    #Finding the raw_html 
         self.validate_html(html)
         
-        pattern = f'<{self.container_tag}[^>]*>(.*?)</{self.container_tag}>'
+        pattern = f'<{self.article_html}[^>]*>(.*?)</{self.article_html}>'
         
         matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
         
@@ -214,7 +214,7 @@ class ArticleParser(BaseParser):
         results = []
         for content in matches:
             cleaned = self.strip_html_tags(content)
-            cleaned = self.clean_text(cleaned)
+            cleaned = self.clean_raw_html(cleaned)
             
             if cleaned:
                 results.append(cleaned)
@@ -260,7 +260,7 @@ class MetadataParser(BaseParser):
         for pattern in category_patterns:
             match = re.search(pattern, html, re.IGNORECASE)
             if match:
-                category = self.clean_text(match.group(1))
+                category = self.clean_raw_html(match.group(1))
                 self.logger.info(f"Found category: {category}")
                 return category
         
@@ -274,14 +274,14 @@ class LinkParser(BaseParser):
     #Parser for extracting links from HTML for discovering new URLs to crawl.
     
     
-    def __init__(self, base_url=None):
+    def __init__(self, starting_URL=None):
 
         
         #Input: Base URL for resolving relative links
 
         super().__init__()
-        self.base_url = base_url
-        self.logger.info(f"Initialized LinkParser with base_url: {base_url}")
+        self.starting_URL = starting_URL
+        self.logger.info(f"Initialized LinkParser with starting_URL: {starting_URL}")
     
     def extract(self, html):
 
@@ -311,6 +311,9 @@ class LinkParser(BaseParser):
         
         self.logger.info(f"Extracted {len(links)} links")
         return links
+
+
+
 # In your Spider class
 class Spider:
     def __init__(self, keywords):
