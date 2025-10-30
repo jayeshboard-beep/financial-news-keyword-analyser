@@ -14,23 +14,18 @@ class Downloader:
 
     
     def __init__(self,):
-
-    
     def fetch(self, url):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        
         try:
             response = requests.get(url, headers=headers)
-            
             # Fixed: status_code not status.code
             if response.status_code == 200:
                 return response.text 
             else:
                 print(f"Error: Got status code {response.status_code} for {url}")
                 return None
-                
         except requests.exceptions.RequestException as e:
             print(f"Error fetching {url}: {e}")
             return None
@@ -43,23 +38,17 @@ class Downloader:
 
 class ParserError(Exception):
     pass
-
 class InvalidHTMLError(ParserError):
     """Raised when HTML is malformed or empty"""
     pass
-
-
-class BaseParser:
-    
+class BaseParser:   
     #Abstract base class for all HTML parsers.
     #Provides common utilities for HTML parsing and raw_html cleaning.
-    
-    
+     
     def __init__(self):
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
-    
     def extract(self, html):
 
         #Inputs:html content to parse
@@ -68,7 +57,6 @@ class BaseParser:
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement extract() method"
         )
-    
     def strip_html_tags(self, raw_html):
 
         #Remove all HTML tags from raw_html.
@@ -82,7 +70,6 @@ class BaseParser:
         # Remove HTML tags: matches <...> 
         clean = re.sub(r'<[^>]+>', '', raw_html)
         return clean.strip()
-    
     def clean_raw_html(self, raw_html):
 
             #Inputs :raw_html (str): Raw extracted raw_html
@@ -90,15 +77,13 @@ class BaseParser:
         
         if not raw_html:
             return ""
-        
-        # Decode common HTML entities
+       
+    # Decode common HTML entities
         raw_html = raw_html.unescape(encodedHtml)
-        
-        # Normalize whitespace: replace multiple spaces/newlines with single space
+    # Normalize whitespace: replace multiple spaces/newlines with single space
         raw_html = re.sub(r'\s+', ' ', raw_html)
         
         return raw_html.strip()
-    
     def validate_html(self, html):
 
         #Validate the HTML before forwarding it
@@ -106,57 +91,40 @@ class BaseParser:
         #Returns "InvalidHTMLError" if HTMl is too short or empty
  
         if html is None:
-            raise InvalidHTMLError("HTML is None")
-        
+            raise InvalidHTMLError("HTML is None") 
         if not isinstance(html, str):
-            raise InvalidHTMLError(f"HTML must be string, got {type(html)}")
-        
+            raise InvalidHTMLError(f"HTML must be string, got {type(html)}") 
         if len(html.strip()) == 0:
             raise InvalidHTMLError("HTML is empty")
-        
         if len(html) < 10:
             raise InvalidHTMLError("HTML is too short to be valid")
 
 
 
 class HeadlineParser(BaseParser):
-    
+      #Inputs:tags (list, optional): List of heading tags to extract(Defaults to ['h1', 'h2', 'h3']).
     def __init__(self, tags=None):
-
-
-        
-         #Inputs:tags (list, optional): List of heading tags to extract(Defaults to ['h1', 'h2', 'h3']).
-                                   
-
         super().__init__()
         self.tags = tags or ['h1', 'h2', 'h3']
         self.logger.info(f"Initialized HeadlineParser with tags: {self.tags}")
     
-    def extract(self, html):
-
+def extract(self, html):
         #Extract headlines from specified heading tags.
         #Inputs: Html
         #Returns List of cleaned headline strings
-
-
         #Finding the approriate header
+        
         self.validate_html(html)
-        
         tags_pattern = '|'.join(self.tags)
-    
         pattern = f'<({tags_pattern})[^>]*>(.*?)</\\1>'
-        
         matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
-        
         self.logger.info(f"Found {len(matches)} headline matches")
-        
+
         # Process and clean the headers
         results = []
         for tag, content in matches:
             cleaned = self.strip_html_tags(content)
             cleaned = self.clean_raw_html(cleaned)
-            
-
             if cleaned:
                 results.append(cleaned)
         
@@ -291,9 +259,7 @@ class LinkParser(BaseParser):
 
             if not link or link.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
                 continue
-            
             links.append(link)
-        
         self.logger.info(f"Extracted {len(links)} links")
         return links
 
