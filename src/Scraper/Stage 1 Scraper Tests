@@ -1,0 +1,15 @@
+#DOwnlaoders tests
+
+# Test code
+if __name__ == "__main__":
+    downloader = Downloader()
+    
+    # Test successful fetch
+    html = downloader.fetch("https://quotes.toscrape.com/")
+    if html:
+        print(f"Success! Got {len(html)} characters")
+        print(html[:200])
+    
+    # Test with invalid URL
+    html = downloader.fetch("https://this-site-definitely-does-not-exist-12345.com")
+    print(f"Result: {html}")
