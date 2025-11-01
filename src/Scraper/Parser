@@ -1,0 +1,228 @@
+#Base Parser for all errors
+
+class ParserError(Exception):
+    pass
+class InvalidHTMLError(ParserError):
+    """Raised when HTML is malformed or empty"""
+    pass
+class BaseParser:   
+    #Abstract base class for all HTML parsers.
+    #Provides common utilities for HTML parsing and raw_html cleaning.
+     
+    def __init__(self):
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+    def extract(self, html):
+
+        #Inputs:html content to parse
+        #Retruns extracted content 
+        
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement extract() method"
+        )
+    def strip_html_tags(self, raw_html):
+
+        #Remove all HTML tags from raw_html.
+        #Inputs:raw_html containing HTML tags
+        #Returns Clean raw_html withut HTML tags
+ 
+        
+        if not raw_html:
+            return ""
+        
+        # Remove HTML tags: matches <...> 
+        clean = re.sub(r'<[^>]+>', '', raw_html)
+        return clean.strip()
+    def clean_raw_html(self, raw_html):
+
+            #Inputs :raw_html (str): Raw extracted raw_html
+            #Returns clean and normalised raw_html 
+        
+        if not raw_html:
+            return ""
+       
+    # Decode common HTML entities
+        raw_html = raw_html.unescape(encodedHtml)
+    # Normalize whitespace: replace multiple spaces/newlines with single space
+        raw_html = re.sub(r'\s+', ' ', raw_html)
+        
+        return raw_html.strip()
+    def validate_html(self, html):
+
+        #Validate the HTML before forwarding it
+        #Input: HTML to validate
+        #Returns "InvalidHTMLError" if HTMl is too short or empty
+ 
+        if html is None:
+            raise InvalidHTMLError("HTML is None") 
+        if not isinstance(html, str):
+            raise InvalidHTMLError(f"HTML must be string, got {type(html)}") 
+        if len(html.strip()) == 0:
+            raise InvalidHTMLError("HTML is empty")
+        if len(html) < 10:
+            raise InvalidHTMLError("HTML is too short to be valid")
+
+
+
+class HeadlineParser(BaseParser):
+      #Inputs:tags (list, optional): List of heading tags to extract(Defaults to ['h1', 'h2', 'h3']).
+    def __init__(self, tags=None):
+        super().__init__()
+        self.tags = tags or ['h1', 'h2', 'h3']
+        self.logger.info(f"Initialized HeadlineParser with tags: {self.tags}")
+    
+def extract(self, html):
+        #Extract headlines from specified heading tags.
+        #Inputs: Html
+        #Returns List of cleaned headline strings
+        #Finding the approriate header
+        
+        self.validate_html(html)
+        tags_pattern = '|'.join(self.tags)
+        pattern = f'<({tags_pattern})[^>]*>(.*?)</\\1>'
+        matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+        self.logger.info(f"Found {len(matches)} headline matches")
+
+        # Process and clean the headers
+        results = []
+        for tag, content in matches:
+            cleaned = self.strip_html_tags(content)
+            cleaned = self.clean_raw_html(cleaned)
+            if cleaned:
+                results.append(cleaned)
+        
+        self.logger.info(f"Extracted {len(results)} valid headlines")
+        return results
+
+
+class ArticleParser(BaseParser):
+
+    #Parser for extracting full article content
+ 
+    def __init__(self, article_htm='article'):
+      
+        
+       #Inputs: HTML that contains article content
+
+        
+        super().__init__()
+        self.article_html = article_html
+        self.logger.info(f"Initialized ArticleParser with tag: {article_html}")
+    
+    def extract(self, html):
+
+       # Extract article content from container tags.
+        
+        #Input:HTML content  
+        #Returns  List of article content strings
+
+            
+    #Finding the raw_html 
+        self.validate_html(html)
+        
+        pattern = f'<{self.article_html}[^>]*>(.*?)</{self.article_html}>'
+        
+        matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+        
+        self.logger.info(f"Found {len(matches)} article matches")
+        
+        # Clean each article
+        results = []
+        for content in matches:
+            cleaned = self.strip_html_tags(content)
+            cleaned = self.clean_raw_html(cleaned)
+            
+            if cleaned:
+                results.append(cleaned)
+        
+        return results
+
+
+class MetadataParser(BaseParser):
+    """
+    Parser for extracting article category/type from HTML metadata.
+    Used in Stage 3 to classify articles for risk analysis.
+    
+    Demonstrates: Inheritance, Polymorphism, Targeted Extraction
+    """
+    
+    def __init__(self):
+        """Initialize metadata parser"""
+        super().__init__()
+        self.logger.info("Initialized MetadataParser")
+    
+    def extract(self, html):
+
+        #Extract article category/type from HTML metadata.
+        #Input:HTML content
+        #Returns: Article category/type or "Unknown" if not found
+            
+       
+       
+
+        self.validate_html(html)
+        
+        # Try different meta tag patterns for category/section
+        category_patterns = [
+            r'<meta[^>]*name=["\']section["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']section["\']',
+            r'<meta[^>]*name=["\']category["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']category["\']',
+            r'<meta[^>]*property=["\']article:section["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*property=["\']article:section["\']',
+        ]
+        
+        # Try each pattern until we find a match
+        for pattern in category_patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                category = self.clean_raw_html(match.group(1))
+                self.logger.info(f"Found category: {category}")
+                return category
+        
+
+        self.logger.warning("No category metadata found")
+        return "Unknown"
+
+
+class LinkParser(BaseParser):
+
+    #Parser for extracting links from HTML for discovering new URLs to crawl.
+    
+    
+    def __init__(self, starting_URL=None):
+
+        
+        #Input: Base URL for resolving relative links
+
+        super().__init__()
+        self.starting_URL = starting_URL
+        self.logger.info(f"Initialized LinkParser with starting_URL: {starting_URL}")
+    
+    def extract(self, html):
+
+        #Extract all links (href attributes) from HTML.
+
+            #Input:html (str): HTML content
+            #Returns: List of URLs found in href attributes
+            
+
+
+        self.validate_html(html)
+        
+        # Pattern to match href attributes
+        pattern = r'href=["\']([^"\']*)["\']'
+        matches = re.findall(pattern, html, re.IGNORECASE)
+        
+        # Filter out empty links and anchors
+        links = []
+        for link in matches:
+            link = link.strip()
+            
+
+            if not link or link.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+                continue
+            links.append(link)
+        self.logger.info(f"Extracted {len(links)} links")
+        return links
