@@ -72,3 +72,122 @@ else:
 print("\n" + "="*70)
 print("TESTING COMPLETE")
 print("="*70)
+
+
+
+
+
+#Spider tests
+
+# ============================================================================
+# TESTING CODE
+# ============================================================================
+
+if __name__ == "__main__":
+    import logging
+    
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(name)s - %(message)s'
+    )
+    
+    print("\n" + "="*70)
+    print("TESTING Spider._contains_keyword()")
+    print("="*70)
+    
+    # Test 1: Basic keyword matching
+    print("\n--- Test 1: Basic Keyword Matching ---")
+    
+    keywords = ['tesla', 'model 3', 'spacex', 'cybertruck']
+    spider = Spider(keywords)
+    
+    test_headlines = [
+        "Tesla Announces New Battery Technology",
+        "SpaceX Successfully Launches Starship",
+        "Apple Releases New iPhone",
+        "Tesla Model 3 Faces Safety Review",
+        "Cybertruck Production Begins in 2025",
+        "Google Updates Search Algorithm"
+    ]
+    
+    print(f"Keywords: {keywords}\n")
+    
+    for headline in test_headlines:
+        matches = spider._contains_keyword(headline)
+        
+        if matches:
+            print(f"✅ '{headline}'")
+            print(f"   Matched: {matches}")
+        else:
+            print(f"❌ '{headline}'")
+            print(f"   No matches")
+    
+    # Test 2: Case insensitivity
+    print("\n--- Test 2: Case Insensitivity ---")
+    
+    test_cases = [
+        "TESLA NEWS TODAY",
+        "tesla news today",
+        "TeSLa NeWs ToDaY",
+        "Model 3 updates"
+    ]
+    
+    for text in test_cases:
+        matches = spider._contains_keyword(text)
+        print(f"Text: '{text}' → Matches: {matches}")
+    
+    # Test 3: Full Spider.parse() workflow
+    print("\n--- Test 3: Full parse() Workflow ---")
+    
+    test_html = """
+    <html>
+    <body>
+        <h1>Tesla Model 3 Safety Investigation Announced</h1>
+        <h2>SpaceX Launches New Satellite Constellation</h2>
+        <h3>Apple Reports Q4 Earnings</h3>
+        <h2>Tesla Cybertruck Production Ramps Up</h2>
+    </body>
+    </html>
+    """
+    
+    url = "https://example.com/news"
+    results = spider.parse(test_html, url)
+    
+    print(f"\nParsed {len(results)} matching headlines from HTML:\n")
+    
+    for i, result in enumerate(results, 1):
+        print(f"{i}. Headline: '{result['headline']}'")
+        print(f"   URL: {result['url']}")
+        print(f"   Keywords: {result['matched_keywords']}")
+        print(f"   Timestamp: {result['timestamp']}")
+        print()
+    
+    # Test 4: Multiple keyword matches in one headline
+    print("\n--- Test 4: Multiple Keywords in One Headline ---")
+    
+    multi_keyword_headline = "Tesla Model 3 and Cybertruck Production Update"
+    matches = spider._contains_keyword(multi_keyword_headline)
+    
+    print(f"Headline: '{multi_keyword_headline}'")
+    print(f"Matched keywords: {matches}")
+    print(f"Count: {len(matches)} keywords matched")
+    
+    # Test 5: Edge cases
+    print("\n--- Test 5: Edge Cases ---")
+    
+    edge_cases = [
+        ("", "Empty string"),
+        ("No relevant content here", "No matches"),
+        ("tesla tesla tesla", "Repeated keyword"),
+        ("model", "Partial match (should match 'model 3'? No!)")
+    ]
+    
+    for text, description in edge_cases:
+        matches = spider._contains_keyword(text)
+        print(f"{description}: '{text}'")
+        print(f"  → Matches: {matches if matches else 'None'}")
+    
+    print("\n" + "="*70)
+    print("✅ ALL TESTS COMPLETE")
+    print("="*70 + "\n")
