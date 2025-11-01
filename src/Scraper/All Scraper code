@@ -265,19 +265,54 @@ class LinkParser(BaseParser):
 
 
 
-# In your Spider class
+from parser import HeadlineParser
+
 class Spider:
+    """
+    Coordinates parsing and keyword matching.
+    Extracts headlines and identifies which contain target keywords.
+    """
+    
     def __init__(self, keywords):
+        """
+        Initialize spider with keywords to search for.
+        
+        Args:
+            keywords (list): List of keywords to match (e.g., ['Tesla Model 3', 'SpaceX'])
+        """
+        # Normalize all keywords to lowercase for case-insensitive matching
         self.keywords = [k.lower() for k in keywords]
-        self.parser = HeadlineParser(tags=['h1', 'h2', 'h3'])  # Use the reusable parser!
+        
+        # Use HeadlineParser to extract headlines
+        self.parser = HeadlineParser(tags=['h1', 'h2', 'h3'])
     
     def parse(self, html, url):
-        # Extract headlines using your reusable parser
+        """
+        Parse HTML and find headlines containing keywords.
+        
+        Args:
+            html (str): HTML content to parse
+            url (str): URL of the page (for metadata)
+        
+        Returns:
+            list: List of dicts with matched headlines
+                  [{
+                      'headline': 'Tesla Model 3 Recall',
+                      'url': 'https://...',
+                      'matched_keywords': ['tesla model 3'],
+                      'timestamp': '2025-11-01T14:30:00'
+                  }]
+        """
+        # Extract headlines using HeadlineParser
         headlines = self.parser.extract(html)
         
         results = []
+        
+        # Check each headline for keyword matches
         for headline in headlines:
             matched_keywords = self._contains_keyword(headline)
+            
+            # Only include headlines that match at least one keyword
             if matched_keywords:
                 results.append({
                     'headline': headline,
@@ -287,48 +322,38 @@ class Spider:
                 })
         
         return results
-
-
-
-
-
-
-
-
-
-class Spider:
-    """Coordinates parsing and keyword matching"""
-    
-    def __init__(self, keywords):
-        self.keywords = [k.lower() for k in keywords]  # normalize to lowercase
-        self.parser = HTMLParser()
-    
-    def parse(self, html, url):
-        """
-        Parse HTML and find headlines containing keywords
-        Returns: List of dicts with matched headlines
-        """
-        # TODO: Implement this
-        # Steps:
-        # 1. Use HTMLParser to extract all headlines
-        # 2. For each headline, check if it contains keywords
-        # 3. If match found, create result dict with:
-        #    - headline, url, matched_keywords, timestamp
-        # 4. Return list of all matches
-        pass
     
     def _contains_keyword(self, text):
         """
-        Check if text contains any keyword
-        Returns: List of matched keywords or empty list
+        Check if text contains any of the target keywords.
+        
+        Args:
+            text (str): Text to search (e.g., a headline)
+        
+        Returns:
+            list: List of matched keywords, or empty list if none match
+        
+        Example:
+            keywords = ['tesla', 'spacex']
+            text = "Tesla Announces New Model"
+            Returns: ['tesla']
         """
-        # TODO: Implement keyword matching logic
-        # Hints:
-        # - Normalize text to lowercase
-        # - Check if each keyword appears in text
-        # - Consider word boundaries (avoid partial matches)
-        # - Return which keywords matched
-        pass
+        # Step 1: Normalize text to lowercase for case-insensitive matching
+        text_lower = text.lower()
+        
+        # Step 2: Collect matched keywords
+        matched = []
+        
+        # Step 3: Loop through each keyword
+        for keyword in self.keywords:
+            # Step 4: Check if keyword appears in text
+            if keyword in text_lower:
+                matched.append(keyword)
+        
+        # Step 5: Return list of matched keywords (empty if none)
+        return matched
+
+
 
 
 class Scheduler:
