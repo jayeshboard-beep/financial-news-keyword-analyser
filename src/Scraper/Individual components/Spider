@@ -1,0 +1,40 @@
+from parser import HeadlineParser
+
+
+  #Coordinates parsing and keyword matching.
+  #Extracts headlines and identifies which contain target keywords.
+class Spider:
+    def __init__(self, keywords):
+        self.keywords = [k.lower() for k in keywords]
+
+        # Use HeadlineParser to extract headlines
+        self.parser = HeadlineParser(tags=['h1', 'h2', 'h3'])
+    
+    def parse(self, html, url):
+****
+NEEDS to BE done wit Aho Corasick algo
+
+****
+
+
+
+#Check if text contains any of the target keywords.
+    def _contains_keyword(self, text):
+    
+        #Inputs:text (str): Text to search (e.g., a headline)
+        #Outputs:list: List of matched keywords, or empty list if none match
+
+        
+        text_lower = text.lower()
+        matched = []
+      
+          for keyword in self.keyword
+            if keyword in text_lower:
+                matched.append(keyword)
+        return matched
+
+
+    
+    print("\n" + "="*70)
+    print("✅ ALL TESTS COMPLETE")
+    print("="*70 + "\n")
