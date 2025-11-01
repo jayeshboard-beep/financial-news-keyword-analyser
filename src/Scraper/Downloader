@@ -1,0 +1,26 @@
+import requests
+import re
+import logging
+import html
+from datetime import datetime
+
+#Downloads all the URL's from The scheduler
+class Downloader:
+
+    
+    def __init__(self,):
+    def fetch(self, url):
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        try:
+            response = requests.get(url, headers=headers)
+            # Fixed: status_code not status.code
+            if response.status_code == 200:
+                return response.text 
+            else:
+                print(f"Error: Got status code {response.status_code} for {url}")
+                return None
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching {url}: {e}")
+            return None
