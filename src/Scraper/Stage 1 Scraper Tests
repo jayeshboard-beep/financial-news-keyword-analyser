@@ -191,3 +191,139 @@ if __name__ == "__main__":
     print("\n" + "="*70)
     print("✅ ALL TESTS COMPLETE")
     print("="*70 + "\n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#scheduler tests
+
+
+
+if __name__ == "__main__":
+    print("\n" + "="*70)
+    print("TESTING SCHEDULER CLASS")
+    print("="*70)
+    
+    # Create scheduler
+    scheduler = Scheduler()
+    
+    # Test 1: Adding URLs
+    print("\n--- Test 1: Adding URLs ---")
+    scheduler.add_url("https://example.com/page1")
+    scheduler.add_url("https://example.com/page2")
+    scheduler.add_url("https://example.com/page3")
+    
+    print(f"Queue contains: {scheduler.queue}")
+    print(f"Visited set: {scheduler.visited}")
+    print(f"Expected: 3 URLs in queue")
+    print(f"✅ Pass" if len(scheduler.queue) == 3 else "❌ Fail")
+    
+    # Test 2: Duplicate Prevention
+    print("\n--- Test 2: Preventing Duplicates ---")
+    print("Adding 'https://example.com/page1' again (duplicate)...")
+    scheduler.add_url("https://example.com/page1")
+    
+    print(f"Queue still contains: {scheduler.queue}")
+    print(f"Queue length: {len(scheduler.queue)}")
+    print(f"Expected: Still 3 URLs (duplicate not added)")
+    print(f"✅ Pass" if len(scheduler.queue) == 3 else "❌ Fail")
+    
+    # Test 3: Getting URLs (FIFO order)
+    print("\n--- Test 3: Getting URLs in Order (FIFO) ---")
+    
+    url1 = scheduler.get_next_url()
+    print(f"1st URL: {url1}")
+    print(f"Expected: https://example.com/page1")
+    print(f"✅ Pass" if url1 == "https://example.com/page1" else "❌ Fail")
+    
+    url2 = scheduler.get_next_url()
+    print(f"2nd URL: {url2}")
+    print(f"Expected: https://example.com/page2")
+    print(f"✅ Pass" if url2 == "https://example.com/page2" else "❌ Fail")
+    
+    print(f"\nRemaining queue: {scheduler.queue}")
+    print(f"Expected: ['https://example.com/page3']")
+    
+    # Test 4: is_empty() method
+    print("\n--- Test 4: Checking if Empty ---")
+    
+    print(f"Is empty now? {scheduler.is_empty()}")
+    print(f"Expected: False (1 URL left)")
+    print(f"✅ Pass" if not scheduler.is_empty() else "❌ Fail")
+    
+    url3 = scheduler.get_next_url()
+    print(f"\n3rd URL: {url3}")
+    print(f"Queue after popping: {scheduler.queue}")
+    
+    print(f"\nIs empty now? {scheduler.is_empty()}")
+    print(f"Expected: True (no URLs left)")
+    print(f"✅ Pass" if scheduler.is_empty() else "❌ Fail")
+    
+    # Test 5: Getting from empty queue
+    print("\n--- Test 5: Getting from Empty Queue ---")
+    
+    url4 = scheduler.get_next_url()
+    print(f"URL from empty queue: {url4}")
+    print(f"Expected: None")
+    print(f"✅ Pass" if url4 is None else "❌ Fail")
+    
+    # Test 6: Adding after emptying
+    print("\n--- Test 6: Adding URLs After Queue Was Empty ---")
+    
+    scheduler.add_url("https://example.com/page4")
+    scheduler.add_url("https://example.com/page5")
+    
+    print(f"Queue: {scheduler.queue}")
+    print(f"Is empty? {scheduler.is_empty()}")
+    print(f"Expected: False (2 new URLs added)")
+    print(f"✅ Pass" if not scheduler.is_empty() else "❌ Fail")
+    
+    # Test 7: Complex scenario (mimics real crawling)
+    print("\n--- Test 7: Complex Crawling Scenario ---")
+    
+    scheduler_complex = Scheduler()
+    
+    # Add seed URL
+    scheduler_complex.add_url("https://news.com/")
+    print(f"Added seed URL, queue: {scheduler_complex.queue}")
+    
+    # Simulate crawling loop
+    iterations = 0
+    while not scheduler_complex.is_empty() and iterations < 10:
+        current_url = scheduler_complex.get_next_url()
+        print(f"  Crawling: {current_url}")
+        
+        # Simulate finding new URLs on the page
+        if iterations == 0:
+            # First page finds 2 new URLs
+            scheduler_complex.add_url("https://news.com/article1")
+            scheduler_complex.add_url("https://news.com/article2")
+            print(f"    Found 2 new URLs")
+        elif iterations == 1:
+            # Second page finds 1 new URL and 1 duplicate
+            scheduler_complex.add_url("https://news.com/article3")
+            scheduler_complex.add_url("https://news.com/")  # Duplicate!
+            print(f"    Found 1 new URL (1 duplicate blocked)")
+        
+        iterations += 1
+    
+    print(f"\nCrawled {iterations} pages")
+    print(f"Total URLs visited: {len(scheduler_complex.visited)}")
+    print(f"Expected: 4 URLs (seed + article1 + article2 + article3)")
+    print(f"✅ Pass" if len(scheduler_complex.visited) == 4 else "❌ Fail")
+    
+    print("\n" + "="*70)
+    print("✅ ALL SCHEDULER TESTS COMPLETE")
+    print("="*70 + "\n")
+
+
