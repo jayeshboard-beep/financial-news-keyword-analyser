@@ -1,0 +1,37 @@
+class Scheduler:
+
+#Manage URL queue and prevents duplicate crawling
+
+    def __init__(self):
+        self.visited = set() 
+        self.queue = []
+
+
+    def add_url(self,url):
+        #Add URL to queue if not visited
+        #Input: URL tio add to crawling
+
+        if url not in self.visited:
+            self.queue.append(url)
+            self.visited.add(url)
+
+
+        pass
+
+    def get_next_url(selfl):
+        #Pass next URL onto the Downloader
+        #Outputs URL
+
+        if len(selfl.queue) != 0:
+            url = selfl.queue.pop(0)
+            return url
+        else:
+            return None 
+
+
+    def is_empty(self):
+        #Checks if queue is empty
+        #Outputs:Bool:true if o more URL's to crawl
+        if len(self.queue) ==0:
+            return len(self.queue) == 0
+        pass
