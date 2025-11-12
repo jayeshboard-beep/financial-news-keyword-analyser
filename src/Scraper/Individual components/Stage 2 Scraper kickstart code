@@ -1,0 +1,167 @@
+# stage2_crawler.py
+"""
+Stage 2: Financial News Article Discovery
+Finds articles about selected product from news sites
+"""
+
+from crawler_system import Downloader, Spider, LinkParser
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+NEWS_SITES = [
+    "https://www.marketwatch.com/",
+    "https://uk.finance.yahoo.com/,
+    "https://www.reuters.com/markets/,
+
+]
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _normalize_url(link, base_url):
+    """
+    Convert relative URLs to absolute URLs.
+    
+    Args:
+        link: URL from LinkParser (might be relative)
+        base_url: Base URL of site (e.g., "https://reuters.com")
+    
+    Returns:
+        Absolute URL
+    """
+    # TODO: Handle absolute URLs (already start with http/https)
+    # TODO: Handle relative URLs starting with /
+    # TODO: Handle relative URLs without leading /
+    
+    pass
+
+
+def _is_likely_article(url):
+    """
+    Simple filter to identify article URLs.
+    
+    Args:
+        url: URL to check
+    
+    Returns:
+        Boolean: True if likely an article
+    """
+    # TODO: Exclude patterns like '/about', '/contact', etc.
+    # TODO: Exclude social media domains
+    # TODO: Exclude file extensions (.jpg, .pdf, etc.)
+    
+    pass
+
+
+# ============================================================================
+# MAIN WORKFLOW
+# ============================================================================
+
+def run_stage2_crawler(product_name):
+    """
+    Main workflow for Stage 2: Find articles about product.
+    
+    Args:
+        product_name: Product to search for (from Stage 1 selection)
+    
+    Returns:
+        List of article URLs
+    """
+    
+    print("\n" + "="*70)
+    print("STAGE 2: ARTICLE DISCOVERY CRAWLER")
+    print("="*70)
+    print(f"\n🔍 Searching for: {product_name}")
+    print(f"📰 News sites to check: {len(NEWS_SITES)}")
+    print()
+    
+    # Step 1: Initialize components
+    print("⚙️  Initializing components...")
+    # TODO: Create Downloader instance
+    # TODO: Create Spider instance (with product_name as keyword)
+    # TODO: Create LinkParser instance
+    print("✅ Components initialized")
+    
+    # Step 2: Process each news site
+    print(f"\n🕷️  Starting crawl...\n")
+    
+    all_article_urls = []
+    blocked_sites = []
+    sites_checked = 0
+    
+    for site_url in NEWS_SITES:
+        sites_checked += 1
+        print(f"[Site {sites_checked}/{len(NEWS_SITES)}] Checking: {site_url}")
+        
+        # TODO: Download homepage HTML
+        
+        # TODO: Check if download failed (handle blocked sites)
+        
+        # TODO: Use Spider to check if product mentioned
+        
+        # TODO: If product NOT mentioned, skip this site
+        
+        # TODO: If product mentioned:
+        #   - Extract all links using LinkParser
+        #   - Normalize URLs
+        #   - Filter to article URLs only
+        #   - Add to all_article_urls
+        
+        print()  # Blank line between sites
+    
+    # Step 3: Summary
+    print("="*70)
+    print("CRAWL COMPLETE")
+    print("="*70)
+    print(f"📊 Sites checked: {sites_checked}")
+    print(f"✅ Article URLs found: {len(all_article_urls)}")
+    
+    if blocked_sites:
+        print(f"⚠️  Sites blocked/unavailable: {len(blocked_sites)}")
+        for site in blocked_sites:
+            print(f"   - {site}")
+    
+    print("="*70)
+    
+    return all_article_urls
+
+
+# ============================================================================
+# DISPLAY RESULTS (for testing)
+# ============================================================================
+
+def display_results(article_urls):
+    """Display found article URLs for testing."""
+    
+    if not article_urls:
+        print("\n❌ No articles found")
+        return
+    
+    print(f"\n" + "="*70)
+    print(f"ARTICLE URLs FOUND ({len(article_urls)} total)")
+    print("="*70)
+    
+    for i, url in enumerate(article_urls, 1):
+        print(f"[{i}] {url}")
+    
+    print("="*70)
+
+
+# ============================================================================
+# EXECUTE
+# ============================================================================
+
+if __name__ == "__main__":
+    # Test with a product name
+    TEST_PRODUCT = "quotes"  # For testing with quotes.toscrape.com
+    
+    # Run the crawler
+    results = run_stage2_crawler(TEST_PRODUCT)
+    
+    # Display results
+    display_results(results)
+    
+    print("\n💡 These URLs would be passed to Stage 3 for analysis\n") 
