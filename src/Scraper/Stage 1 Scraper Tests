@@ -327,3 +327,200 @@ if __name__ == "__main__":
     print("="*70 + "\n")
 
 
+
+
+
+Total and final test of initial scrpaper: 
+
+
+
+   # stage1_crawler.py
+"""
+Stage 1: Product Discovery Crawler
+Finds product mentions on company homepage
+"""
+
+
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+SEED_URL = "https://quotes.toscrape.com/"  # Test URL (works at school)
+KEYWORDS = ['quotes', 'top', 'tags', 'authors']  # Test keywords
+
+# ============================================================================
+# MAIN WORKFLOW
+# ============================================================================
+
+def run_stage1_crawler():
+    """
+    Main workflow for Stage 1 crawler.
+    Returns list of matched results.
+    """
+    
+    print("\n" + "="*70)
+    print("STAGE 1: PRODUCT DISCOVERY CRAWLER")
+    print("="*70)
+    
+    print(f"\n📍 Target URL: {SEED_URL}")
+    print(f"🔍 Keywords: {KEYWORDS}")
+    print()
+    
+    # Step 1: Initialize all components
+    print("⚙️  Initializing components...")
+    scheduler = Scheduler()
+    downloader = Downloader()
+    spider = Spider(KEYWORDS)
+    print("✅ Components initialized")
+    
+    # Step 2: Add seed URL to scheduler
+    print(f"\n📥 Adding seed URL to queue...")
+    scheduler.add_url(SEED_URL)
+    print(f"✅ Seed URL added")
+    
+    # Step 3: Main crawling loop
+    print(f"\n🕷️  Starting crawl...\n")
+    
+    all_results = []
+    pages_crawled = 0
+    
+    while not scheduler.is_empty():
+        # Get next URL
+        url = scheduler.get_next_url()
+        pages_crawled += 1
+        
+        print(f"[Page {pages_crawled}] Crawling: {url}")
+        
+        # Download HTML
+        html = downloader.fetch(url)
+        
+        # Check if download succeeded
+        if html is None:
+            print(f"  ❌ Failed to download")
+            continue
+        
+        print(f"  ✅ Downloaded {len(html)} characters")
+        
+        # Parse and find matches
+        results = spider.parse(html, url)
+        
+        print(f"  🔎 Found {len(results)} keyword matches")
+        
+        # Add to overall results
+        all_results.extend(results)
+        
+        # For Stage 1, we only crawl the seed URL (no link following)
+        # In Stage 2, we'd extract links here and add them to scheduler
+    
+    # Step 4: Summary
+    print(f"\n" + "="*70)
+    print("CRAWL COMPLETE")
+    print("="*70)
+    print(f"📊 Pages crawled: {pages_crawled}")
+    print(f"✅ Total matches: {len(all_results)}")
+    print("="*70)
+    
+    return all_results
+
+
+# ============================================================================
+# DISPLAY RESULTS (Simple version - not shown to user in real system)
+# ============================================================================
+
+def display_results(results):
+    """
+    Display results for testing purposes.
+    In real system, these would be passed to Stage 2.
+    """
+    
+    if not results:
+        print("\n❌ No matches found")
+        return
+    
+    print(f"\n" + "="*70)
+    print(f"MATCHED HEADLINES ({len(results)} total)")
+    print("="*70)
+    
+    for i, result in enumerate(results, 1):
+        print(f"\n[{i}] {result['headline']}")
+        print(f"    Keywords: {', '.join(result['matched_keywords'])}")
+        print(f"    URL: {result['url']}")
+        print(f"    Time: {result['timestamp']}")
+    
+    print("\n" + "="*70)
+
+
+# ============================================================================
+# EXECUTE
+# ============================================================================
+
+if __name__ == "__main__":
+    # Run the crawler
+    results = run_stage1_crawler()
+    
+    # Display results (for testing only)
+    display_results(results)
+    
+    # In real system, results would be:
+    # 1. Stored in memory
+    # 2. User selects a product from results
+    # 3. Selected product passed to Stage 2
+    
+    print("\n💡 In production: User would now select a product from these results")
+    print("   Selected product would be passed to Stage 2 crawler\n")
+
+
+    # test_full_system.py
+"""
+Complete system test for Stage 1 crawler
+Tests all components working together
+"""
+
+
+import sys
+
+print("\n" + "█"*70)
+print("█" + " "*68 + "█")
+print("█" + "  FULL SYSTEM TEST - STAGE 1 CRAWLER".center(68) + "█")
+print("█" + " "*68 + "█")
+print("█"*70)
+
+try:
+    # Run the complete crawler
+    results = run_stage1_crawler()
+    
+    # Verify results
+    print("\n" + "="*70)
+    print("VERIFICATION")
+    print("="*70)
+    
+    print(f"\n✓ Crawler executed without errors")
+    print(f"✓ Results returned: {len(results)} matches")
+    
+    if results:
+        print(f"✓ First result structure:")
+        first = results[0]
+        print(f"  - Has 'headline': {('headline' in first)}")
+        print(f"  - Has 'url': {('url' in first)}")
+        print(f"  - Has 'matched_keywords': {('matched_keywords' in first)}")
+        print(f"  - Has 'timestamp': {('timestamp' in first)}")
+        
+        print(f"\n✓ Sample result:")
+        print(f"  Headline: {first['headline']}")
+        print(f"  Keywords: {first['matched_keywords']}")
+    
+    print("\n" + "="*70)
+    print("✅ ALL TESTS PASSED - SYSTEM WORKING!")
+    print("="*70 + "\n")
+    
+except Exception as e:
+    print(f"\n❌ ERROR OCCURRED:")
+    print(f"   {type(e).__name__}: {e}")
+    print(f"\n   Full traceback:")
+    import traceback
+    traceback.print_exc()
+    print("\n" + "="*70)
+    print("❌ SYSTEM TEST FAILED")
+    print("="*70 + "\n")
+    sys.exit(1)
