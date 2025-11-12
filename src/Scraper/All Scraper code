@@ -1,8 +1,6 @@
 
 
 
-# crawler.py
-
 import requests
 import re
 import logging
@@ -14,6 +12,7 @@ class Downloader:
 
     
     def __init__(self,):
+        pass
     def fetch(self, url):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -79,7 +78,8 @@ class BaseParser:
             return ""
        
     # Decode common HTML entities
-        raw_html = raw_html.unescape(encodedHtml)
+        raw_html = html.unescape(raw_html)
+   
     # Normalize whitespace: replace multiple spaces/newlines with single space
         raw_html = re.sub(r'\s+', ' ', raw_html)
         
@@ -108,35 +108,35 @@ class HeadlineParser(BaseParser):
         self.tags = tags or ['h1', 'h2', 'h3']
         self.logger.info(f"Initialized HeadlineParser with tags: {self.tags}")
     
-def extract(self, html):
-        #Extract headlines from specified heading tags.
-        #Inputs: Html
-        #Returns List of cleaned headline strings
-        #Finding the approriate header
-        
-        self.validate_html(html)
-        tags_pattern = '|'.join(self.tags)
-        pattern = f'<({tags_pattern})[^>]*>(.*?)</\\1>'
-        matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
-        self.logger.info(f"Found {len(matches)} headline matches")
+    def extract(self, html):
+            #Extract headlines from specified heading tags.
+            #Inputs: Html
+            #Returns List of cleaned headline strings
+            #Finding the approriate header
+            
+            self.validate_html(html)
+            tags_pattern = '|'.join(self.tags)
+            pattern = f'<({tags_pattern})[^>]*>(.*?)</\\1>'
+            matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+            self.logger.info(f"Found {len(matches)} headline matches")
 
-        # Process and clean the headers
-        results = []
-        for tag, content in matches:
-            cleaned = self.strip_html_tags(content)
-            cleaned = self.clean_raw_html(cleaned)
-            if cleaned:
-                results.append(cleaned)
-        
-        self.logger.info(f"Extracted {len(results)} valid headlines")
-        return results
+            # Process and clean the headers
+            results = []
+            for tag, content in matches:
+                cleaned = self.strip_html_tags(content)
+                cleaned = self.clean_raw_html(cleaned)
+                if cleaned:
+                    results.append(cleaned)
+            
+            self.logger.info(f"Extracted {len(results)} valid headlines")
+            return results
 
 
 class ArticleParser(BaseParser):
 
     #Parser for extracting full article content
  
-    def __init__(self, article_htm='article'):
+    def __init__(self, article_html='article'):
       
         
        #Inputs: HTML that contains article content
@@ -265,7 +265,7 @@ class LinkParser(BaseParser):
 
 
 
-from parser import HeadlineParser
+
 
 class Spider:
     """
@@ -393,37 +393,3 @@ class Scheduler:
         if len(self.queue) ==0:
             return len(self.queue) == 0
         pass
-
-
-# Main execution
-if __name__ == "__main__":
-    # Configuration
-    SEED_URL = "https://example-news-site.com"  # Replace with your target
-    KEYWORDS = ['Tesla', 'SpaceX', 'Rivian', 'Apple', 'Google']
-    
-    # Initialize components
-    scheduler = Scheduler()
-    downloader = Downloader()
-    spider = Spider(KEYWORDS)
-    
-    # Stage 1: Single URL crawl
-    scheduler.add_url(SEED_URL)
-    
-    all_results = []
-    
-    while not scheduler.is_empty():
-        url = scheduler.get_next_url()
-        print(f"Crawling: {url}")
-        
-        # Download
-        html = downloader.fetch(url)
-        if html is None:
-            print(f"Failed to fetch {url}")
-            continue
-        
-        # Parse and extract
-        results = spider.parse(html, url)
-        all_results.extend(results)
-    
-    # Present results
-    clean_and_present(all_results)
