@@ -357,43 +357,42 @@ class Spider:
 
 
 class Scheduler:
-    """Manages URL queue and coordinates crawling"""
-    
+
+#Manage URL queue and prevents duplicate crawling
+
     def __init__(self):
-        self.visited = set()  # Track processed URLs
-        self.queue = []       # URLs to process
-    
-    def add_url(self, url):
-        """Add URL to queue if not already visited"""
-        # TODO: Implement this
-        # Hints:
-        # - Check if url already in visited
-        # - If not, add to queue
+        self.visited = set() 
+        self.queue = []
+
+
+    def add_url(self,url):
+        #Add URL to queue if not visited
+        #Input: URL tio add to crawling
+
+        if url not in self.visited:
+            self.queue.append(url)
+            self.visited.add(url)
+
+
         pass
-    
-    def get_next_url(self):
-        """Get next URL from queue"""
-        # TODO: Implement this
-        # Hints:
-        # - Pop from queue
-        # - Mark as visited
-        # - Return the URL
-        pass
-    
+
+    def get_next_url(selfl):
+        #Pass next URL onto the Downloader
+        #Outputs URL
+
+        if len(selfl.queue) != 0:
+            url = selfl.queue.pop(0)
+            return url
+        else:
+            return None 
+
+
     def is_empty(self):
-        """Check if queue is empty"""
-        return len(self.queue) == 0
-
-
-def clean_and_present(results):
-    """Clean and format results for display"""
-    # TODO: Implement this
-    # Hints:
-    # - Remove duplicate headlines
-    # - Format nicely for console output
-    # - Maybe sort by matched keywords?
-    # - Print count of matches found
-    pass
+        #Checks if queue is empty
+        #Outputs:Bool:true if o more URL's to crawl
+        if len(self.queue) ==0:
+            return len(self.queue) == 0
+        pass
 
 
 # Main execution
