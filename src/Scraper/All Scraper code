@@ -393,3 +393,97 @@ class Scheduler:
         if len(self.queue) ==0:
             return len(self.queue) == 0
         pass
+
+
+
+
+#Stage 1 scraper(Will need to be changed but tbc):
+
+stage1_crawler.py
+"""
+Stage 1: Product Discovery Crawler
+Finds product mentions on company homepage
+"""
+
+
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+SEED_URL = "https://quotes.toscrape.com/"  # Test URL (works at school)
+KEYWORDS = ['quotes', 'top', 'tags', 'authors']  # Test keywords
+
+# ============================================================================
+# MAIN WORKFLOW
+# ============================================================================
+
+def run_stage1_crawler():
+    """
+    Main workflow for Stage 1 crawler.
+    Returns list of matched results.
+    """
+    
+    print("\n" + "="*70)
+    print("STAGE 1: PRODUCT DISCOVERY CRAWLER")
+    print("="*70)
+    
+    print(f"\n📍 Target URL: {SEED_URL}")
+    print(f"🔍 Keywords: {KEYWORDS}")
+    print()
+    
+    # Step 1: Initialize all components
+    print("⚙️  Initializing components...")
+    scheduler = Scheduler()
+    downloader = Downloader()
+    spider = Spider(KEYWORDS)
+    print("✅ Components initialized")
+    
+    # Step 2: Add seed URL to scheduler
+    print(f"\n📥 Adding seed URL to queue...")
+    scheduler.add_url(SEED_URL)
+    print(f"✅ Seed URL added")
+    
+    # Step 3: Main crawling loop
+    print(f"\n🕷️  Starting crawl...\n")
+    
+    all_results = []
+    pages_crawled = 0
+    
+    while not scheduler.is_empty():
+        # Get next URL
+        url = scheduler.get_next_url()
+        pages_crawled += 1
+        
+        print(f"[Page {pages_crawled}] Crawling: {url}")
+        
+        # Download HTML
+        html = downloader.fetch(url)
+        
+        # Check if download succeeded
+        if html is None:
+            print(f"  ❌ Failed to download")
+            continue
+        
+        print(f"  ✅ Downloaded {len(html)} characters")
+        
+        # Parse and find matches
+        results = spider.parse(html, url)
+        
+        print(f"  🔎 Found {len(results)} keyword matches")
+        
+        # Add to overall results
+        all_results.extend(results)
+        
+        # For Stage 1, we only crawl the seed URL (no link following)
+        # In Stage 2, we'd extract links here and add them to scheduler
+    
+    # Step 4: Summary
+    print(f"\n" + "="*70)
+    print("CRAWL COMPLETE")
+    print("="*70)
+    print(f"📊 Pages crawled: {pages_crawled}")
+    print(f"✅ Total matches: {len(all_results)}")
+    print("="*70)
+    
+    return all_results
