@@ -163,3 +163,27 @@ FINANCIAL_KEYWORDS = {
     'recent': 'temporal',
     'emerging': 'temporal',
 }
+
+
+
+CATEGORY_WEIGHTS = {
+    # Risk categories (negative weights)
+    'risk_financial': -3,      # Severe financial issues
+    'risk_legal': -2,          # Legal troubles
+    'risk_quality': -2,        # Product/service issues
+    'risk_market': -1,         # Competitive pressures
+    
+    # Positive categories
+    'positive_growth': +2,     # Revenue/profit growth
+    'positive_innovation': +2, # New products/technology
+    'positive_strategy': +1,   # Strategic initiatives
+    
+    # Event categories (context-dependent)
+    'event_corporate': 0,      # M&A, restructuring
+    'event_leadership': 0,     # Executive changes
+    'event_regulatory': 0,     # Policy/approval changes
+    
+    # Modifiers
+    'modifier_intensifier': 1.5,   # Multiplier
+    'modifier_diminisher': 0.5,    # Multiplier
+}
