@@ -1,0 +1,165 @@
+FINANCIAL_KEYWORDS = {
+    # === RISK CATEGORIES ===
+    
+    # Risk: Financial (weight: -3, severe impact)
+    'bankruptcy': 'risk_financial',
+    'liquidation': 'risk_financial',
+    'insolvency': 'risk_financial',
+    'debt': 'risk_financial',
+    'losses': 'risk_financial',
+    'deficit': 'risk_financial',
+    'writedown': 'risk_financial',
+    'impairment': 'risk_financial',
+    'downgrade': 'risk_financial',
+    'default': 'risk_financial',
+    'restructuring': 'risk_financial',
+    'covenant breach': 'risk_financial',
+    'cash flow problems': 'risk_financial',
+    'undercapitalized': 'risk_financial',
+    
+    # Risk: Legal (weight: -2, medium-high impact)
+    'lawsuit': 'risk_legal',
+    'litigation': 'risk_legal',
+    'investigation': 'risk_legal',
+    'violation': 'risk_legal',
+    'fine': 'risk_legal',
+    'penalty': 'risk_legal',
+    'compliance breach': 'risk_legal',
+    'regulatory action': 'risk_legal',
+    'settlement': 'risk_legal',
+    'fraud': 'risk_legal',
+    'misconduct': 'risk_legal',
+    'securities violation': 'risk_legal',
+    'antitrust': 'risk_legal',
+    'class action': 'risk_legal',
+    'injunction': 'risk_legal',
+    
+    # Risk: Quality/Operations (weight: -2, medium impact)
+    'recall': 'risk_quality',
+    'defect': 'risk_quality',
+    'malfunction': 'risk_quality',
+    'safety issue': 'risk_quality',
+    'contamination': 'risk_quality',
+    'failure': 'risk_quality',
+    'outage': 'risk_quality',
+    'breach': 'risk_quality',
+    'cyberattack': 'risk_quality',
+    'data leak': 'risk_quality',
+    'hack': 'risk_quality',
+    'disruption': 'risk_quality',
+    'quality control': 'risk_quality',
+    'malfunction': 'risk_quality',
+    
+    # Risk: Market/Competitive (weight: -1, moderate impact)
+    'market share loss': 'risk_market',
+    'competition': 'risk_market',
+    'price pressure': 'risk_market',
+    'declining sales': 'risk_market',
+    'weak demand': 'risk_market',
+    'slowdown': 'risk_market',
+    'contraction': 'risk_market',
+    'struggling': 'risk_market',
+    'challenges': 'risk_market',
+    
+    # === POSITIVE CATEGORIES ===
+    
+    # Positive: Growth (weight: +2, positive impact)
+    'expansion': 'positive_growth',
+    'growth': 'positive_growth',
+    'revenue increase': 'positive_growth',
+    'profit': 'positive_growth',
+    'earnings beat': 'positive_growth',
+    'outperform': 'positive_growth',
+    'record high': 'positive_growth',
+    'surge': 'positive_growth',
+    'rally': 'positive_growth',
+    'boom': 'positive_growth',
+    'strong demand': 'positive_growth',
+    'market leader': 'positive_growth',
+    'uptick': 'positive_growth',
+    'accelerating': 'positive_growth',
+    
+    # Positive: Innovation (weight: +2, positive impact)
+    'breakthrough': 'positive_innovation',
+    'patent': 'positive_innovation',
+    'innovation': 'positive_innovation',
+    'new product': 'positive_innovation',
+    'launch': 'positive_innovation',
+    'R&D': 'positive_innovation',
+    'technology': 'positive_innovation',
+    'cutting-edge': 'positive_innovation',
+    'revolutionary': 'positive_innovation',
+    'disruptive': 'positive_innovation',
+    'next-generation': 'positive_innovation',
+    
+    # Positive: Strategy (weight: +1, moderately positive)
+    'partnership': 'positive_strategy',
+    'collaboration': 'positive_strategy',
+    'deal': 'positive_strategy',
+    'contract': 'positive_strategy',
+    'agreement': 'positive_strategy',
+    'upgrade': 'positive_strategy',
+    'optimization': 'positive_strategy',
+    'efficiency': 'positive_strategy',
+    'streamline': 'positive_strategy',
+    
+    # === EVENT CATEGORIES ===
+    
+    # Events: Corporate Actions (weight: 0, neutral but significant)
+    'merger': 'event_corporate',
+    'acquisition': 'event_corporate',
+    'takeover': 'event_corporate',
+    'IPO': 'event_corporate',
+    'spinoff': 'event_corporate',
+    'divestiture': 'event_corporate',
+    'buyback': 'event_corporate',
+    'dividend': 'event_corporate',
+    'stock split': 'event_corporate',
+    'delisting': 'event_corporate',
+    
+    # Events: Leadership (weight: 0, neutral but trackable)
+    'CEO change': 'event_leadership',
+    'resignation': 'event_leadership',
+    'appointment': 'event_leadership',
+    'executive departure': 'event_leadership',
+    'management shake-up': 'event_leadership',
+    'board change': 'event_leadership',
+    
+    # Events: Regulatory (weight: varies by context)
+    'approval': 'event_regulatory',
+    'FDA approval': 'event_regulatory',
+    'clearance': 'event_regulatory',
+    'regulation': 'event_regulatory',
+    'policy change': 'event_regulatory',
+    'tariff': 'event_regulatory',
+    'sanction': 'event_regulatory',
+    
+    # === SENTIMENT MODIFIERS ===
+    
+    # Intensifiers (multiply base weight by 1.5)
+    'significant': 'modifier_intensifier',
+    'major': 'modifier_intensifier',
+    'severe': 'modifier_intensifier',
+    'critical': 'modifier_intensifier',
+    'substantial': 'modifier_intensifier',
+    'widespread': 'modifier_intensifier',
+    'massive': 'modifier_intensifier',
+    'catastrophic': 'modifier_intensifier',
+    
+    # Diminishers (multiply base weight by 0.5)
+    'minor': 'modifier_diminisher',
+    'slight': 'modifier_diminisher',
+    'potential': 'modifier_diminisher',
+    'alleged': 'modifier_diminisher',
+    'possible': 'modifier_diminisher',
+    'rumored': 'modifier_diminisher',
+    'limited': 'modifier_diminisher',
+    
+    # Temporal markers (for trend volatility)
+    'quarterly': 'temporal',
+    'annual': 'temporal',
+    'monthly': 'temporal',
+    'ongoing': 'temporal',
+    'recent': 'temporal',
+    'emerging': 'temporal',
+}
