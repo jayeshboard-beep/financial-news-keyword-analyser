@@ -1,5 +1,5 @@
 FINANCIAL_KEYWORDS = {
-    # === RISK CATEGORIES ===
+    
     
     # Risk: Financial (weight: -3, severe impact)
     'bankruptcy': 'risk_financial',
