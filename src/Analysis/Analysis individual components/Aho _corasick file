@@ -1,0 +1,122 @@
+class TrieNode:
+
+    #Represents a single node in the Trie structure for Aho-Corasick algorithm.
+  
+
+    """
+    Initialize a new TrieNode.
+    """
+    # Dictionary to store child nodes
+    # Key: character (e.g., 'a', 'b', ' ')
+    # Value: TrieNode object
+    # Using dict gives O(1) lookup time for finding next character
+    self.children = {}
+    
+    # Boolean flag - True if a keyword ends at this node
+    self.is_end_of_word = False
+    
+    # List of keywords that end at this node
+    # Multiple keywords might end here (e.g., "lawsuit" and "lawsuits")
+    # Using list because we might have multiple keywords ending at same node
+    self.keywords = []
+    
+    # Failure link - where to jump if next character doesn't match
+    # Initially None, will be set during build_failure_links()
+    self.fail_link = None
+    
+    # Output link - shortcut to find overlapping matches
+    # Points to nearest ancestor (via failure links) that ends a keyword
+    # Initially None, will be set during build_output_links()
+    self.output_link = None
+
+
+
+class AhoCorasick:
+    """
+    Aho-Corasick algorithm implementation for multi-pattern string matching.
+    Efficiently finds all occurrences of multiple keywords in a single pass.
+    """
+    
+    def __init__(self, keyword_dict):
+        """
+        Initialize the Aho-Corasick automaton.
+        
+        Args:
+            keyword_dict: Dictionary mapping keywords to categories
+                         e.g., {'lawsuit': 'risk_legal', 'growth': 'sentiment_positive_strong'}
+        """
+        # Create the root node of the Trie
+        self.root = TrieNode()
+        
+        # Root's failure link points to itself
+        self.root.fail_link = self.root
+        
+        # Store the keyword dictionary for later lookup
+        self.keyword_dict = keyword_dict
+        
+    def insert_keyword(self, keyword):
+        """
+        Insert a single keyword into the Trie.
+        
+        Args:
+            keyword: String to insert (can be single word or phrase with spaces)
+                    e.g., "lawsuit" or "safety concerns"
+        """
+        # Start at the root
+        current_node = self.root
+        
+        # Process each character in the keyword
+        for char in keyword:
+            # Check if this character already exists as a child
+            if char not in current_node.children:
+                # Character doesn't exist - create a new node
+                current_node.children[char] = TrieNode()
+            
+            # Move to the child node for this character
+            current_node = current_node.children[char]
+        
+        # We've processed all characters - mark this as end of keyword
+        current_node.is_end_of_word = True
+        
+        # Store the actual keyword at this node
+        # (We need this to return the matched keyword later)
+        current_node.keywords.append(keyword)
+    
+    def build_trie(self):
+        """
+        Build the Trie structure by inserting all keywords from the dictionary.
+        This should be called after __init__ and before building failure links.
+        """
+        # Insert each keyword from the dictionary
+        for keyword in self.keyword_dict.keys():
+            # Normalize the keyword (lowercase)
+            normalized_keyword = keyword.lower()
+            self.insert_keyword(normalized_keyword)
+
+
+# Test code
+if __name__ == "__main__":
+    # Small test dictionary
+    test_keywords = {
+        'lawsuit': 'risk_legal',
+        'safety concerns': 'risk_quality',
+        'growth': 'sentiment_positive_strong',
+        'he': 'test',
+        'she': 'test'
+    }
+    
+    # Create and build the Trie
+    ac = AhoCorasick(test_keywords)
+    ac.build_trie()
+    
+    # Test: Print the Trie structure (for debugging)
+    def print_trie(node, prefix="", indent=0):
+        """Helper function to visualize the Trie"""
+        if node.is_end_of_word:
+            print("  " * indent + f"'{prefix}' [END] - Keywords: {node.keywords}")
+        for char, child in node.children.items():
+            print("  " * indent + f"'{char}' →")
+            print_trie(child, prefix + char, indent + 1)
+    
+    print("Trie Structure:")
+    print_trie(ac.root)
