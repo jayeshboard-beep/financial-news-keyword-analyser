@@ -3,93 +3,59 @@ class TrieNode:
     #Represents a single node in the Trie structure for Aho-Corasick algorithm.
   
 
-    """
-    Initialize a new TrieNode.
-    """
-    # Dictionary to store child nodes
-    # Key: character (e.g., 'a', 'b', ' ')
-    # Value: TrieNode object
-    # Using dict gives O(1) lookup time for finding next character
+
     self.children = {}
-    
-    # Boolean flag - True if a keyword ends at this node
     self.is_end_of_word = False
     
     # List of keywords that end at this node
-    # Multiple keywords might end here (e.g., "lawsuit" and "lawsuits")
-    # Using list because we might have multiple keywords ending at same node
     self.keywords = []
     
     # Failure link - where to jump if next character doesn't match
-    # Initially None, will be set during build_failure_links()
     self.fail_link = None
     
     # Output link - shortcut to find overlapping matches
-    # Points to nearest ancestor (via failure links) that ends a keyword
-    # Initially None, will be set during build_output_links()
     self.output_link = None
 
 
 
 class AhoCorasick:
-    """
-    Aho-Corasick algorithm implementation for multi-pattern string matching.
-    Efficiently finds all occurrences of multiple keywords in a single pass.
-    """
+
+    #Aho-Corasick algorithm implementation for multi-pattern string matching.
+ 
     
     def __init__(self, keyword_dict):
-        """
-        Initialize the Aho-Corasick automaton.
-        
-        Args:
-            keyword_dict: Dictionary mapping keywords to categories
-                         e.g., {'lawsuit': 'risk_legal', 'growth': 'sentiment_positive_strong'}
-        """
-        # Create the root node of the Trie
+        #Inputs:
+            #keyword_dict: Dictionary mapping keywords to categories
+
+
+        # Trie root note created+failure links
         self.root = TrieNode()
-        
-        # Root's failure link points to itself
         self.root.fail_link = self.root
         
         # Store the keyword dictionary for later lookup
         self.keyword_dict = keyword_dict
         
     def insert_keyword(self, keyword):
-        """
-        Insert a single keyword into the Trie.
-        
-        Args:
-            keyword: String to insert (can be single word or phrase with spaces)
-                    e.g., "lawsuit" or "safety concerns"
-        """
-        # Start at the root
+       #Keyword to be created into a trie is produced
+
         current_node = self.root
-        
+
         # Process each character in the keyword
         for char in keyword:
-            # Check if this character already exists as a child
             if char not in current_node.children:
-                # Character doesn't exist - create a new node
                 current_node.children[char] = TrieNode()
             
-            # Move to the child node for this character
+            # Move to the child node for this Letter
             current_node = current_node.children[char]
         
-        # We've processed all characters - mark this as end of keyword
+        # End of all characters in a word
         current_node.is_end_of_word = True
-        
-        # Store the actual keyword at this node
-        # (We need this to return the matched keyword later)
         current_node.keywords.append(keyword)
     
     def build_trie(self):
-        """
-        Build the Trie structure by inserting all keywords from the dictionary.
-        This should be called after __init__ and before building failure links.
-        """
-        # Insert each keyword from the dictionary
+      #Buid the trie strucutre
+
         for keyword in self.keyword_dict.keys():
-            # Normalize the keyword (lowercase)
             normalized_keyword = keyword.lower()
             self.insert_keyword(normalized_keyword)
 
@@ -120,3 +86,67 @@ if __name__ == "__main__":
     
     print("Trie Structure:")
     print_trie(ac.root)
+
+
+
+
+
+
+def build_failure_links(self):
+    
+        #Build failure links using Breadth-First Search (BFS).
+        #I broke this down into steps for my own understanding 
+        from collections import deque
+        
+        
+        
+        # Create a queue for BFS 
+        queue = deque()
+        
+        # Step 1: Set failure links for all depth-1 nodes
+        for char, child_node in self.root.children.items():
+            child_node.fail_link = self.root
+            queue.append(child_node)
+        
+        # Step 2: BFS through the rest of the Trie
+        while queue:
+            current_node = queue.popleft()
+            for char, child_node in current_node.children.items():
+                fail_candidate = current_node.fail_link
+                # Keep following failure links until we find a node that HAS this character
+                while fail_candidate is not self.root and char not in fail_candidate.children:
+                    fail_candidate = fail_candidate.fail_link
+                # Now set the child's failure link
+                if char in fail_candidate.children:
+                    # Found a node with this character - point to it
+                    child_node.fail_link = fail_candidate.children[char]
+                else:
+                    child_node.fail_link = self.root
+                queue.append(child_node)
+
+
+
+    def build_output_links(self):
+        from collections import deque
+        queue = deque()
+        
+
+        for child_node in self.root.children.values():
+            queue.append(child_node)
+        while queue:
+            current_node = queue.popleft()
+            
+            # Follow the failure link chain to find an ancestor that ends a word
+            fail_node = current_node.fail_link
+            
+            # Keep following failure links until we find one that ends a word
+            while fail_node is not self.root and not fail_node.is_end_of_word:
+                fail_node = fail_node.fail_link
+            if fail_node.is_end_of_word:
+                current_node.output_link = fail_node
+            else:
+                current_node.output_link = None
+            
+          
+            for child_node in current_node.children.values():
+                queue.append(child_node)
