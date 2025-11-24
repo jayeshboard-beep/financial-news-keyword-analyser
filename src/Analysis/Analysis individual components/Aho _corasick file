@@ -2,105 +2,49 @@ class TrieNode:
 
     #Represents a single node in the Trie structure for Aho-Corasick algorithm.
   
+    def __init__(self):
+        
 
-
-    self.children = {}
-    self.is_end_of_word = False
-    
-    # List of keywords that end at this node
-    self.keywords = []
-    
-    # Failure link - where to jump if next character doesn't match
-    self.fail_link = None
-    
-    # Output link - shortcut to find overlapping matches
-    self.output_link = None
+        self.children = {}
+        self.is_end_of_word = False
+        
+        # List of keywords that end at this node
+        self.keywords = []
+        
+        # Failure link - where to jump if next character doesn't match
+        self.fail_link = None
+        
+        # Output link - shortcut to find overlapping matches
+        self.output_link = None
 
 
 
 class AhoCorasick:
-
-    #Aho-Corasick algorithm implementation for multi-pattern string matching.
- 
+    
     
     def __init__(self, keyword_dict):
-        #Inputs:
-            #keyword_dict: Dictionary mapping keywords to categories
-
-
-        # Trie root note created+failure links
         self.root = TrieNode()
         self.root.fail_link = self.root
-        
-        # Store the keyword dictionary for later lookup
         self.keyword_dict = keyword_dict
         
     def insert_keyword(self, keyword):
-       #Keyword to be created into a trie is produced
-
         current_node = self.root
-
-        # Process each character in the keyword
         for char in keyword:
             if char not in current_node.children:
                 current_node.children[char] = TrieNode()
-            
-            # Move to the child node for this Letter
             current_node = current_node.children[char]
         
-        # End of all characters in a word
         current_node.is_end_of_word = True
         current_node.keywords.append(keyword)
     
     def build_trie(self):
-      #Buid the trie strucutre
-
         for keyword in self.keyword_dict.keys():
             normalized_keyword = keyword.lower()
             self.insert_keyword(normalized_keyword)
-
-
-# Test code
-if __name__ == "__main__":
-    # Small test dictionary
-    test_keywords = {
-        'lawsuit': 'risk_legal',
-        'safety concerns': 'risk_quality',
-        'growth': 'sentiment_positive_strong',
-        'he': 'test',
-        'she': 'test'
-    }
     
-    # Create and build the Trie
-    ac = AhoCorasick(test_keywords)
-    ac.build_trie()
-    
-    # Test: Print the Trie structure (for debugging)
-    def print_trie(node, prefix="", indent=0):
-        """Helper function to visualize the Trie"""
-        if node.is_end_of_word:
-            print("  " * indent + f"'{prefix}' [END] - Keywords: {node.keywords}")
-        for char, child in node.children.items():
-            print("  " * indent + f"'{char}' →")
-            print_trie(child, prefix + char, indent + 1)
-    
-    print("Trie Structure:")
-    print_trie(ac.root)
-
-
-
-
-
-
-def build_failure_links(self):
-    
-        #Build failure links using Breadth-First Search (BFS).
-        #I broke this down into steps for my own understanding 
+    def build_failure_links(self):
         from collections import deque
         
-        
-        
-        # Create a queue for BFS 
         queue = deque()
         
         # Step 1: Set failure links for all depth-1 nodes
@@ -113,40 +57,36 @@ def build_failure_links(self):
             current_node = queue.popleft()
             for char, child_node in current_node.children.items():
                 fail_candidate = current_node.fail_link
-                # Keep following failure links until we find a node that HAS this character
+                
                 while fail_candidate is not self.root and char not in fail_candidate.children:
                     fail_candidate = fail_candidate.fail_link
-                # Now set the child's failure link
+                
                 if char in fail_candidate.children:
-                    # Found a node with this character - point to it
                     child_node.fail_link = fail_candidate.children[char]
                 else:
                     child_node.fail_link = self.root
+                
                 queue.append(child_node)
-
-
-
+    
     def build_output_links(self):
         from collections import deque
+        
         queue = deque()
         
-
         for child_node in self.root.children.values():
             queue.append(child_node)
+        
         while queue:
             current_node = queue.popleft()
-            
-            # Follow the failure link chain to find an ancestor that ends a word
             fail_node = current_node.fail_link
             
-            # Keep following failure links until we find one that ends a word
             while fail_node is not self.root and not fail_node.is_end_of_word:
                 fail_node = fail_node.fail_link
+            
             if fail_node.is_end_of_word:
                 current_node.output_link = fail_node
             else:
                 current_node.output_link = None
             
-          
             for child_node in current_node.children.values():
                 queue.append(child_node)
