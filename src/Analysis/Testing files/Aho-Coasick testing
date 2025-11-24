@@ -1,1 +1,46 @@
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Breadth first and faiulure links testing
+if __name__ == "__main__":
+    test_keywords = {
+        'lawsuit': 'risk_legal',
+        'safety concerns': 'risk_quality',
+        'growth': 'sentiment_positive_strong',
+        'he': 'test',
+        'she': 'test'
+    }
+    
+    ac = AhoCorasick(test_keywords)
+    ac.build_trie()
+    ac.build_failure_links()
+    ac.build_output_links()
+    
+    print("✅ Trie built successfully!")
+    print("✅ Failure links built successfully!")
+    print("✅ Output links built successfully!")
+    
+    if 's' in ac.root.children:
+        s_node = ac.root.children['s']
+        if 'h' in s_node.children:
+            h_node = s_node.children['h']
+            if 'e' in h_node.children:
+                she_node = h_node.children['e']
+                print(f"\n'she' node output link points to: {she_node.output_link.keywords if she_node.output_link else 'None'}")
+                print("(Should point to 'he' node for overlapping match detection)")
