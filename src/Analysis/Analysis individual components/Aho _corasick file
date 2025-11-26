@@ -151,30 +151,15 @@ def _create_match(self, text, keyword, end_position):
     }
 
 def _extract_context(self, text, start_pos, keyword_length, context_size=50):
-    """
-    Extract surrounding context for a matched keyword.
-    
-    Args:
-        text: The full text
-        start_pos: Where the keyword starts
-        keyword_length: Length of the keyword
-        context_size: How many characters to include before/after (default 50)
-    
-    Returns:
-        String with context, keyword highlighted, and ellipsis if truncated
-    """
+
+    #Extract surrounding context for a matched keyword.
+ 
     keyword_end = start_pos + keyword_length
-    
-    # Calculate context boundaries
     context_start = max(0, start_pos - context_size)
     context_end = min(len(text), keyword_end + context_size)
-    
-    # Extract the pieces
     before = text[context_start:start_pos]
     keyword_text = text[start_pos:keyword_end]
     after = text[keyword_end:context_end]
-    
-    # Add ellipsis if truncated
     if context_start > 0:
         before = "..." + before
     if context_end < len(text):
