@@ -395,6 +395,70 @@ class Scheduler:
         pass
 
 
+class DOMParser(BaseParser):
+    def __init__(self, article_tag='article', headline_tags=None):
+      super().__init__()
+   
+      self.article_tag = article_tag
+      self.headline_tags = headline_tags
+      
+      self.article_parser = ArticleParser(article_tag)
+      self.headline_parser = HeadlineParser(headline_tags)
+      self.metadata_parser = MetadataParser()
+      self.logger.info(f"Initialized DOMParser with article_tag='{article_tag}', headline_tags={headline_tags}")
+  
+    def extract(self, html):
+      def extract(self, html):
+  
+      self.validate_html(html)
+      self.logger.info("Starting content extraction")
+      
+        #Meta article initialiser
+      self.logger.info("Extracting article content...")
+      articles = self.article_parser.extract(html)
+      if articles:
+          articles = [a for a in articles if a.strip()]
+          full_content = "\n\n".join(articles)
+      else:
+          full_content = ""
+      self.logger.info(f"Extracted {len(articles)} article sections")
+      
+    #Header data initialiser
+      self.logger.info("Extracting headlines...")
+      headlines = self.headline_parser.extract(html)
+      self.logger.info(f"Found {len(headlines)} headlines")
+      
+  
+      #Meta data initialiser
+      self.logger.info("Extracting metadata...")
+      category = self.metadata_parser.extract(html)
+      self.logger.info(f"Category: {category}")
+      
+      #Dictionary creater
+      structured_data = {
+          'full_content': full_content,
+          'headlines': headlines,
+          'category': category
+      }
+      self._validate_structure(structured_data)
+      
+      self.logger.info("Content extraction complete")
+      return structured_data
+  
+  
+    def _validate_structure(self, data_dict):
+    required_keys = ['full_content', 'headlines', 'category']
+    for key in required_keys:
+        if key not in data_dict:
+            raise ValueError(f"Missing required key: '{key}'")
+    if not isinstance(data_dict['full_content'], str):
+        raise ValueError("'full_content' must be a string")
+    if not isinstance(data_dict['headlines'], list):
+        raise ValueError("'headlines' must be a list")
+    if not isinstance(data_dict['category'], str):
+        raise ValueError("'category' must be a string")
+
+
 
 
 #Stage 1 scraper(Will need to be changed but tbc):
