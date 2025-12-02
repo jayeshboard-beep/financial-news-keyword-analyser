@@ -406,10 +406,9 @@ class DOMParser(BaseParser):
       self.logger.info(f"Initialized DOMParser with article_tag='{article_tag}', headline_tags={headline_tags}")
   
     def extract(self, html):
-      def extract(self, html):
   
-        self.validate_html(html)
-        self.logger.info("Starting content extraction")
+      self.validate_html(html)
+      self.logger.info("Starting content extraction")
       
         #Meta article initialiser
       self.logger.info("Extracting article content...")
@@ -455,9 +454,6 @@ class DOMParser(BaseParser):
             raise ValueError("'headlines' must be a list")
         if not isinstance(data_dict['category'], str):
             raise ValueError("'category' must be a string")
-
-
-
 
 #Stage 1 scraper(Will need to be changed but tbc):
 
