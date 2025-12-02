@@ -64,45 +64,22 @@ class DOMParser(BaseParser):
 
 
 
-
-#Tesst:
- Create test HTML
-test_html = """
-<html>
-<article>This is article content.</article>
-<article>This is more content.</article>
-<h1>Main Headline</h1>
-<h2>Sub Headline</h2>
-<meta name="section" content="Business">
-</html>
-"""
-
-# Test DOMParser
-parser = DOMParser()
-result = parser.extract(test_html)
-
-print("Full Content:", result['full_content'])
-print("Headlines:", result['headlines'])
-print("Category:", result['category'])
-```
-
-**Expected output:**
-```
-INFO:DOMParser:Initialized DOMParser with article_tag='article', headline_tags=None
-INFO:DOMParser:Starting content extraction
-INFO:DOMParser:Extracting article content...
-INFO:ArticleParser:Found 2 article matches
-INFO:DOMParser:Extracted 2 article sections
-INFO:DOMParser:Extracting headlines...
-INFO:HeadlineParser:Found 2 headline matches
-INFO:DOMParser:Found 2 headlines
-INFO:DOMParser:Extracting metadata...
-INFO:MetadataParser:Found category: Business
-INFO:DOMParser:Category: Business
-INFO:DOMParser:Content extraction complete
-
-Full Content: This is article content.
-
-This is more content.
-Headlines: ['Main Headline', 'Sub Headline']
-Category: Business
+# Test code (put at very bottom of file)
+if __name__ == "__main__":
+    test_html = """
+    <html>
+    <article>This is article content.</article>
+    <article>This is more content.</article>
+    <h1>Main Headline</h1>
+    <h2>Sub Headline</h2>
+    <meta name="section" content="Business">
+    </html>
+    """
+    
+    # Test DOMParser
+    parser = DOMParser()
+    result = parser.extract(test_html)
+    
+    print("Full Content:", result['full_content'])
+    print("Headlines:", result['headlines'])
+    print("Category:", result['category'])
