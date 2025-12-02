@@ -83,3 +83,78 @@ if __name__ == "__main__":
     print("Full Content:", result['full_content'])
     print("Headlines:", result['headlines'])
     print("Category:", result['category'])
+
+
+if __name__ == "__main__":
+    # Test 1: Complete article with everything
+    print("="*50)
+    print("TEST 1: Complete Article")
+    print("="*50)
+    test_html = """
+    <html>
+    <article>This is article content.</article>
+    <article>This is more content.</article>
+    <h1>Main Headline</h1>
+    <h2>Sub Headline</h2>
+    <meta name="section" content="Business">
+    </html>
+    """
+    
+    parser = DOMParser()
+    result = parser.extract(test_html)
+    
+    print("Full Content:", result['full_content'])
+    print("Headlines:", result['headlines'])
+    print("Category:", result['category'])
+    
+    # Test 2: Missing Article Tags
+    print("\n" + "="*50)
+    print("TEST 2: No Article Tags")
+    print("="*50)
+    test_no_article = """
+    <html>
+    <h1>Just a Headline</h1>
+    <meta name="section" content="Tech">
+    </html>
+    """
+    
+    result2 = parser.extract(test_no_article)
+    print("Full Content:", repr(result2['full_content']))  # Should be empty string ""
+    print("Headlines:", result2['headlines'])
+    print("Category:", result2['category'])
+    
+    # Test 3: No Headlines
+    print("\n" + "="*50)
+    print("TEST 3: No Headlines")
+    print("="*50)
+    test_no_headlines = """
+    <html>
+    <article>Article with no headlines.</article>
+    <meta name="section" content="News">
+    </html>
+    """
+    
+    result3 = parser.extract(test_no_headlines)
+    print("Full Content:", result3['full_content'])
+    print("Headlines:", result3['headlines'])  # Should be empty list []
+    print("Category:", result3['category'])
+    
+    # Test 4: No Metadata
+    print("\n" + "="*50)
+    print("TEST 4: No Metadata")
+    print("="*50)
+    test_no_metadata = """
+    <html>
+    <article>Content here.</article>
+    <h1>Title</h1>
+    </html>
+    """
+    
+    result4 = parser.extract(test_no_metadata)
+    print("Full Content:", result4['full_content'])
+    print("Headlines:", result4['headlines'])
+    print("Category:", result4['category'])  # Should be "Unknown"
+    
+    print("\n" + "="*50)
+    print("ALL TESTS COMPLETE!")
+    print("="*50)
