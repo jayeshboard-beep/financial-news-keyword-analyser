@@ -170,8 +170,193 @@ class SentimentScorer(BaseAnalyzer):
         }
 
 
+
+class RiskTagger(BaseAnalyzer):
+    """
+    Identifies specific risk events from keyword matches. From that then tag them so that data can be forwarded to conclution
+    
+    Algorithm:
+    1. Check for empty input (error check)
+    2. Identify and group matches risk category
+    3. Calculate severity based on frequency
+    4. Calculate overall risk score
+    5. Apply category multiplier
+    """
+    
+    def __init__(self, article_category=None, category_metadata=None):
+        super().__init__(article_category)
+        
+        # Extract risk scores
+        self.risk_scores = {}
+        for cat_name, cat_data in category_metadata.items():
+            if 'risk_score' in cat_data:
+                self.risk_scores[cat_name] = cat_data['risk_score']
+        
+        self.risk_categories = {
+            'risk_financial': 'Financial Risk',
+            'risk_legal': 'Legal Risk',
+            'risk_quality': 'Quality/Operations Risk',
+            'risk_market': 'Market Risk'
+        }
+        
+        # Severity thresholds based on keyword count
+        self.severity_thresholds = {
+            'HIGH': 5,      
+            'MODERATE': 3,  
+            'LOW': 1        
+        }
+        
+    
+    
+    def analyze(self, matches):
+        """
+        Analyze risk from keyword matches.
+        
+        Will output dict like below
+            dict: {
+                'detected_risks': dict of risk categories ,
+                'overall_risk_score':  (0-100),
+                'primary_risk': str (highest severity risk),
+                'risk_count': int (total risk keywords found)
+            }
+        """
+        
+        # Error handle
+        if not matches:
+            logging.info("No matches found - returning zero risk")
+            return self._generate_zero_risk_output()
+        
+
+        detected_risks = {}
+        
+        # Scan throug heach matcg
+        for match in matches:
+            category = match['category']
+            
+            # Exlude non risk catergories
+            if category not in self.risk_categories:
+                continue
+            risk_name = self.risk_categories[category]
+            
+            # Initialize this risk category if first time seeing it
+            if risk_name not in detected_risks:
+                detected_risks[risk_name] = {
+                    'count': 0,
+                    'keywords': [],
+                    'evidence': [],
+                    'category': category
+                }
+            detected_risks[risk_name]['count'] += 1
+            detected_risks[risk_name]['keywords'].append(match['keyword'])
+            detected_risks[risk_name]['evidence'].append(match['context'])
+        
+        # Error if no risk found
+        if not detected_risks:
+            return self._generate_zero_risk_output()
+        
+        for risk_name, risk_data in detected_risks.items():#Severity worked out
+            count = risk_data['count']
+            
+            # Determine severity based on frequency
+            if count >= self.severity_thresholds['HIGH']:
+                severity = 'HIGH'
+            elif count >= self.severity_thresholds['MODERATE']:
+                severity = 'MODERATE'
+            else:
+                severity = 'LOW'
+            
+            risk_data['severity'] = severity
+            risk_data['evidence'] = risk_data['evidence'][:3]
+        
+        # Calculate overall risk score bY APPLYING CATEGORY MULTIPLIER
+        overall_score = self._calculate_overall_risk(detected_risks)
+        multiplier = self.get_category_multiplier()
+        overall_score = overall_score * multiplier
+        
+
+        primary_risk = self._find_primary_risk(detected_risks)        # Find primary risk (highest severity)
+        total_count = sum(data['count'] for data in detected_risks.values())        # Count total risk keywords
+ 
+        return {
+            'detected_risks': detected_risks,
+            'overall_risk_score': round(overall_score, 2),
+            'primary_risk': primary_risk,
+            'risk_count': total_count,
+            'category_multiplier': multiplier
+        }
+    
+    
+    def _calculate_overall_risk(self, detected_risks):
+        """
+        Calculate overall risk score from detected risks.
+        Via severity and risk tagging
+        """
+ 
+
+        # Severity weights
+        severity_weights = {
+            'HIGH': 10,
+            'MODERATE': 5,
+            'LOW': 2
+        }
+        
+        total_score = 0
+        
+        # Calculate weighted score for each risk
+        for risk_name, risk_data in detected_risks.items():
+            severity = risk_data['severity']
+            count = risk_data['count']
+            weight = severity_weights[severity]
+            risk_score = weight * count
+            total_score += risk_score
+        
+        # Create a standard for the score
+        normalized_score = min(total_score * 2, 100) 
+        return normalized_score
+    
+    
+    def _find_primary_risk(self, detected_risks):
+        """
+        Find the primary (most severe) risk category to feedback to user
+        """
+        # Severity order for comparison
+        severity_order = {'HIGH': 3, 'MODERATE': 2, 'LOW': 1}
+        primary_risk = None
+        highest_severity_value = 0
+        highest_count = 0
+        for risk_name, risk_data in detected_risks.items():
+            severity = risk_data['severity']
+            count = risk_data['count']
+            severity_value = severity_order[severity]
+            
+            #Compare with current primary
+            if severity_value > highest_severity_value:
+                primary_risk = risk_name
+                highest_severity_value = severity_value
+                highest_count = count
+            elif severity_value == highest_severity_value and count > highest_count:
+                primary_risk = risk_name
+                highest_count = count
+        
+        return primary_risk
+    
+    
+    def _generate_zero_risk_output(self):
+        return {
+            'detected_risks': {},
+            'overall_risk_score': 0.0,
+            'primary_risk': None,
+            'risk_count': 0,
+            'category_multiplier': self.get_category_multiplier()
+        }
+
+
+
+
+
+
 # ============================================================================
-# TEST CODE
+# TEST CODE for sentiment scorer
 # ============================================================================
 
 # NOTE: Make sure you have your keywords.py file with CATEGORY_METADATA imported
@@ -289,3 +474,146 @@ result4 = scorer.analyze(matches_empty)
 
 print(f"\nResult: {result4['sentiment']}")
 print(f"Overall Score: {result4['overall_score']}")
+
+
+
+
+
+# ============================================================================
+# TEST CODE FOR RISKTAGGER
+# ============================================================================
+
+print("\n" + "=" * 50)
+print("RISKTAGGER TESTS")
+print("=" * 50)
+
+# Test Case 1: Single risk type
+print("\n" + "=" * 50)
+print("TEST 1: Single Risk Type (Legal)")
+print("=" * 50)
+
+matches_legal = [
+    {
+        'keyword': 'lawsuit',
+        'category': 'risk_legal',
+        'position': 100,
+        'context': '...company faces [lawsuit] over...'
+    },
+    {
+        'keyword': 'investigation',
+        'category': 'risk_legal',
+        'position': 200,
+        'context': '...regulatory [investigation] into...'
+    }
+]
+
+tagger = RiskTagger(article_category='Legal', category_metadata=CATEGORY_METADATA)
+result = tagger.analyze(matches_legal)
+
+print(f"\nOverall Risk Score: {result['overall_risk_score']}")
+print(f"Primary Risk: {result['primary_risk']}")
+print(f"Total Risk Keywords: {result['risk_count']}")
+print(f"Category Multiplier: {result['category_multiplier']}x")
+print("\nDetected Risks:")
+for risk_name, risk_data in result['detected_risks'].items():
+    print(f"  {risk_name}: {risk_data['severity']} ({risk_data['count']} mentions)")
+    print(f"    Keywords: {', '.join(risk_data['keywords'])}")
+
+
+# Test Case 2: Multiple risk types
+print("\n" + "=" * 50)
+print("TEST 2: Multiple Risk Types")
+print("=" * 50)
+
+matches_multiple = [
+    {
+        'keyword': 'lawsuit',
+        'category': 'risk_legal',
+        'position': 50,
+        'context': '...[lawsuit] filed...'
+    },
+    {
+        'keyword': 'recall',
+        'category': 'risk_quality',
+        'position': 150,
+        'context': '...product [recall] announced...'
+    },
+    {
+        'keyword': 'bankruptcy',
+        'category': 'risk_financial',
+        'position': 250,
+        'context': '...filing for [bankruptcy]...'
+    },
+    {
+        'keyword': 'losses',
+        'category': 'risk_financial',
+        'position': 350,
+        'context': '...massive [losses] reported...'
+    },
+    {
+        'keyword': 'debt crisis',
+        'category': 'risk_financial',
+        'position': 450,
+        'context': '...[debt crisis] worsening...'
+    }
+]
+
+result2 = tagger.analyze(matches_multiple)
+
+print(f"\nOverall Risk Score: {result2['overall_risk_score']}")
+print(f"Primary Risk: {result2['primary_risk']}")
+print(f"Total Risk Keywords: {result2['risk_count']}")
+print("\nDetected Risks:")
+for risk_name, risk_data in result2['detected_risks'].items():
+    print(f"  {risk_name}: {risk_data['severity']} ({risk_data['count']} mentions)")
+
+
+# Test Case 3: High severity (many mentions)
+print("\n" + "=" * 50)
+print("TEST 3: High Severity Risk")
+print("=" * 50)
+
+matches_high = [
+    {'keyword': 'lawsuit', 'category': 'risk_legal', 'position': 50, 'context': '...[lawsuit]...'},
+    {'keyword': 'litigation', 'category': 'risk_legal', 'position': 100, 'context': '...[litigation]...'},
+    {'keyword': 'investigation', 'category': 'risk_legal', 'position': 150, 'context': '...[investigation]...'},
+    {'keyword': 'fine', 'category': 'risk_legal', 'position': 200, 'context': '...[fine]...'},
+    {'keyword': 'penalty', 'category': 'risk_legal', 'position': 250, 'context': '...[penalty]...'},
+    {'keyword': 'violation', 'category': 'risk_legal', 'position': 300, 'context': '...[violation]...'},
+]
+
+result3 = tagger.analyze(matches_high)
+
+print(f"\nOverall Risk Score: {result3['overall_risk_score']}")
+print(f"Primary Risk: {result3['primary_risk']}")
+print("\nDetected Risks:")
+for risk_name, risk_data in result3['detected_risks'].items():
+    print(f"  {risk_name}: {risk_data['severity']} ({risk_data['count']} mentions)")
+
+
+# Test Case 4: No risk keywords (edge case)
+print("\n" + "=" * 50)
+print("TEST 4: No Risk Keywords (Edge Case)")
+print("=" * 50)
+
+matches_no_risk = [
+    {'keyword': 'growth', 'category': 'sentiment_positive_strong', 'position': 100, 'context': '...[growth]...'},
+    {'keyword': 'profits', 'category': 'sentiment_positive_strong', 'position': 200, 'context': '...[profits]...'}
+]
+
+result4 = tagger.analyze(matches_no_risk)
+
+print(f"\nOverall Risk Score: {result4['overall_risk_score']}")
+print(f"Primary Risk: {result4['primary_risk']}")
+print(f"Total Risk Keywords: {result4['risk_count']}")
+
+
+# Test Case 5: Empty matches (edge case)
+print("\n" + "=" * 50)
+print("TEST 5: Empty Matches (Edge Case)")
+print("=" * 50)
+
+result5 = tagger.analyze([])
+
+print(f"\nOverall Risk Score: {result5['overall_risk_score']}")
+print(f"Primary Risk: {result5['primary_risk']}")
