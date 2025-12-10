@@ -2,8 +2,14 @@ import logging
 
 
 class BaseAnalyzer:
+    """
+    Base class for all analysis algorithms.
+    """
+    
     def __init__(self, article_category=None):
         self.article_category = article_category
+        
+        # Category multipliers for risk weighting
         self.category_multipliers = {
             'Legal': 1.5,
             'Business': 1.2,
@@ -11,73 +17,275 @@ class BaseAnalyzer:
             'Technology': 1.0,
             'General': 1.0
         }
+    
     def get_category_multiplier(self):
+
+       # Get risk multiplier based on article category.
+
         return self.category_multipliers.get(self.article_category, 1.0)
     
     def analyze(self, matches):
+
+        #Abstract method to be  implemented by subclasses.
+
         raise NotImplementedError("Subclasses must implement analyze()")
 
 
 
-
 class SentimentScorer(BaseAnalyzer):
+    """
+    Calculates sentiment score from keyword matches.
+    
+    Steps:
+    1. Check for empty input (Error checking)
+    2. Loop through matches and calculate weighted scores
+    3. Check for modifiers near each keyword
+    4. Classify overall sentiment based on score
+    """
     
     def __init__(self, article_category=None, category_metadata=None):
         super().__init__(article_category)
         
-        # Extract sentiment weights from CATEGORY_METADATA
+        # Extract sentiment weights from category metadata
         self.sentiment_weights = {}
         for cat_name, cat_data in category_metadata.items():
             if 'sentiment_score' in cat_data:
                 self.sentiment_weights[cat_name] = cat_data['sentiment_score']
         
-        # Extract modifier multipliers from CATEGORY_METADATA
+        # Extract modifier effects from category metadata
         self.modifier_effects = {}
         for cat_name, cat_data in category_metadata.items():
             if 'multiplier' in cat_data:
                 self.modifier_effects[cat_name] = cat_data['multiplier']
         
-        # Modifier detection range (characters before keyword)
-        self.modifier_range = 20  # ~3-4 wordsx
-        
-        logging.info(f"SentimentScorer initialized with {len(self.sentiment_weights)} sentiment categories")
     
     def analyze(self, matches):
         """
-        Main analysis method.
+        Analyze sentiment from keyword matches GIVEN by aho-corasick algorithm 
         
-        Args:
-            matches: List of dicts from Aho-Corasick with keys:
-                - 'keyword': str
-                - 'category': str
-                - 'position': int (character index)
-                - 'context': str
-        
-        Returns:
+    Outputs:
             dict: {
                 'overall_score': float,
                 'sentiment': str ('POSITIVE', 'NEGATIVE', 'NEUTRAL'),
-                'confidence': str ('HIGH', 'MODERATE', 'LOW'),
                 'positive_score': float,
                 'negative_score': float,
                 'breakdown': list of keyword details
             }
         """
         
-        # Handle edge case: no matches
+        # Error handle
         if not matches:
-            logging.info("No matches found - returning neutral sentiment")
             return self._generate_neutral_output()
         
-        # Step 1: Build modifier position map
-        modifier_map = self._build_modifier_map(matches)
-        logging.info(f"Found {len(modifier_map)} modifiers in text")
+ 
+        positive_score = 0.0
+        negative_score = 0.0
+        keyword_details = []
         
-        # Step 2: Calculate scores for sentiment keywords
-        scores = self._calculate_keyword_scores(matches, modifier_map)
+        # Process each match
+        for match in matches:
+            category = match['category']
+            
+
+            if category not in self.sentiment_weights:
+                continue
+            base_weight = self.sentiment_weights[category]
+            
+            # Check for nearby modifier
+            modifier = self._check_for_modifier(match, matches)
+            
+            # Calculate final weight with modifier applied
+            final_weight = base_weight * modifier
+            
+            # Add to total
+            if final_weight > 0:
+                positive_score += final_weight
+            else:
+                negative_score += abs(final_weight)
+            keyword_details.append({
+                'keyword': match['keyword'],
+                'base_weight': base_weight,
+                'modifier': modifier if modifier != 1.0 else None,
+                'final_weight': final_weight,
+                'context': match['context']
+            })
+            
+           
+        overall = positive_score - negative_score
         
-        # Step 3: Generate final output with classification
-        output = self._generate_output(scores)
+        # Classify sentiment based on thresholds
+        if overall > 5:
+            sentiment = 'POSITIVE'
+        elif overall < -5:
+            sentiment = 'NEGATIVE'
+        else:
+            sentiment = 'NEUTRAL'
         
-        logging.info(f"Sentiment analysis complete: {output['sentiment']} (score: {output['overall_score']})")
-        return output
+        # Output the dict
+        return {
+            'overall_score': round(overall, 2),
+            'sentiment': sentiment,
+            'positive_score': round(positive_score, 2),
+            'negative_score': round(negative_score, 2),
+            'breakdown': keyword_details
+        }
+    
+    
+    def _check_for_modifier(self, current_match, all_matches):
+        """
+        Check if there's a effect within 20 characters before this keyword.
+        """
+        current_position = current_match['position']
+        
+        # Check each match
+        for match in all_matches:
+            category = match['category']
+            
+            if category not in self.modifier_effects:
+                continue
+            modifier_position = match['position']
+            
+            # Modifier must be before the keyword
+            if modifier_position >= current_position:
+                continue
+            distance = current_position - modifier_position
+            if distance <= 20:#20 char check
+                logging.debug(f"Modifier '{match['keyword']}' at {modifier_position} affects keyword at {current_position}")
+                return self.modifier_effects[category]
+        
+        # No found
+        return 1.0
+    
+    
+    def _generate_neutral_output(self):
+
+        #Return neutral sentiment when no matches found.
+
+        return {
+            'overall_score': 0.0,
+            'sentiment': 'NEUTRAL',
+            'positive_score': 0.0,
+            'negative_score': 0.0,
+            'breakdown': []
+        }
+
+
+# ============================================================================
+# TEST CODE
+# ============================================================================
+
+# NOTE: Make sure you have your keywords.py file with CATEGORY_METADATA imported
+# from keywords import CATEGORY_METADATA
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+
+# Test Case 1: Simple positive sentiment
+print("=" * 50)
+print("TEST 1: Simple Positive Sentiment")
+print("=" * 50)
+
+matches_positive = [
+    {
+        'keyword': 'growth',
+        'category': 'sentiment_positive_strong',
+        'position': 100,
+        'context': '...company experiencing strong [growth] in Q3...'
+    },
+    {
+        'keyword': 'rising',
+        'category': 'sentiment_positive_moderate',
+        'position': 200,
+        'context': '...profits are [rising] steadily...'
+    }
+]
+
+# NOTE: Replace 'keywords' with your actual keywords file name
+
+
+scorer = SentimentScorer(article_category='Business', category_metadata=CATEGORY_METADATA)
+result = scorer.analyze(matches_positive)
+
+print(f"\nResult: {result['sentiment']}")
+print(f"Overall Score: {result['overall_score']}")
+print(f"Positive: {result['positive_score']}, Negative: {result['negative_score']}")
+print(f"Keywords analyzed: {len(result['breakdown'])}")
+
+
+# Test Case 2: With modifier (intensifier)
+print("\n" + "=" * 50)
+print("TEST 2: Positive with Intensifier")
+print("=" * 50)
+
+matches_with_modifier = [
+    {
+        'keyword': 'significant',
+        'category': 'modifier_intensifier',
+        'position': 95,
+        'context': '...showing [significant] growth...'
+    },
+    {
+        'keyword': 'growth',
+        'category': 'sentiment_positive_strong',
+        'position': 110,
+        'context': '...significant [growth] in revenue...'
+    }
+]
+
+result2 = scorer.analyze(matches_with_modifier)
+
+print(f"\nResult: {result2['sentiment']}")
+print(f"Overall Score: {result2['overall_score']}")
+print("\nBreakdown:")
+for detail in result2['breakdown']:
+    if detail['modifier']:
+        print(f"  '{detail['keyword']}': {detail['base_weight']} × {detail['modifier']} = {detail['final_weight']}")
+    else:
+        print(f"  '{detail['keyword']}': {detail['final_weight']}")
+
+
+# Test Case 3: Mixed sentiment
+print("\n" + "=" * 50)
+print("TEST 3: Mixed Sentiment")
+print("=" * 50)
+
+matches_mixed = [
+    {
+        'keyword': 'record profits',
+        'category': 'sentiment_positive_strong',
+        'position': 50,
+        'context': '...reported [record profits] despite...'
+    },
+    {
+        'keyword': 'lawsuit',
+        'category': 'risk_legal',
+        'position': 200,
+        'context': '...facing [lawsuit] over...'
+    },
+    {
+        'keyword': 'concern',
+        'category': 'sentiment_negative_moderate',
+        'position': 300,
+        'context': '...investors express [concern] about...'
+    }
+]
+
+result3 = scorer.analyze(matches_mixed)
+
+print(f"\nResult: {result3['sentiment']}")
+print(f"Overall Score: {result3['overall_score']}")
+print(f"Positive: {result3['positive_score']}, Negative: {result3['negative_score']}")
+print(f"Note: 'lawsuit' ignored (not sentiment keyword)")
+
+
+# Test Case 4: Empty matches (edge case)
+print("\n" + "=" * 50)
+print("TEST 4: Empty Matches (Edge Case)")
+print("=" * 50)
+
+matches_empty = []
+result4 = scorer.analyze(matches_empty)
+
+print(f"\nResult: {result4['sentiment']}")
+print(f"Overall Score: {result4['overall_score']}")
