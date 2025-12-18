@@ -1,0 +1,381 @@
+class TrendVolatilityAnalyzer(BaseAnalyzer):
+    """
+    Analyzes market volatility by detecting sentiment fluctuations and emotional language.
+    
+   Parts:
+    1. Calculate sentiment balance volatility (0-35)
+    2. Check for contradiction signals (0-25 points)
+    3. Evaluate frequency spike indicators (0-20 points)
+    4. Count emotional language intensity (0-20 points)
+    5. Combine scores and determine confidence level
+    """
+    
+    def __init__(self, article_category=None, category_metadata=None):
+        super().__init__(article_category)
+        
+        # Extract volatility scores from metadata
+        self.volatility_scores = {}
+        for cat_name, cat_data in category_metadata.items():
+            if 'volatility_score' in cat_data:
+                self.volatility_scores[cat_name] = cat_data['volatility_score']
+        
+        # Confidence thresholds set based on idea of volatility level
+        self.confidence_thresholds = {
+            'HIGH': 30,      # 0-30 = confident trend prediction
+            'MODERATE': 60,  # 31-60 = moderate confidence
+            'LOW': 100       # 61-100 = low confidence (unreliable)
+        }
+    
+    
+    def analyze(self, sentiment_result, frequency_result, contradiction_result, keyword_matches):
+        """
+       Step 5
+         Analyze market volatility from combined analyzer outputs.
+
+        Outputs:
+            dict: {
+                'volatility_score': float (0-100),
+                'confidence_level': str ('HIGH', 'MODERATE', 'LOW'),
+                'components': dict of scores,
+                'interpretation': str explanation to be given to user
+            }
+        """
+        
+        # Calculate each volatility component
+        balance_component = self._calculate_balance_volatility(sentiment_result)
+        contradiction_component = self._calculate_contradiction_volatility(contradiction_result)
+        frequency_component = self._calculate_frequency_volatility(frequency_result)
+        emotion_component = self._calculate_emotion_volatility(keyword_matches)
+        
+        # Combinination
+        total_volatility = balance_component + contradiction_component + frequency_component + emotion_component
+        if total_volatility > 100:
+            total_volatility = 100
+        
+        # Determine confidence level
+        confidence = self._determine_confidence(total_volatility)
+        
+        # Produce interpretation
+        interpretation = self._generate_interpretation(
+            total_volatility, 
+            balance_component, 
+            contradiction_component, 
+            frequency_component, 
+            emotion_component
+        )
+        return {
+            'volatility_score': round(total_volatility, 2),
+            'confidence_level': confidence,
+            'components': {
+                'sentiment_balance': round(balance_component, 2),
+                'contradictions': round(contradiction_component, 2),
+                'frequency_spike': round(frequency_component, 2),
+                'emotional_intensity': round(emotion_component, 2)
+            },
+            'interpretation': interpretation
+        }
+    
+    
+    def _calculate_balance_volatility(self, sentiment_result):#Calculate volatility from sentiment balance(Step 1)
+
+        # Error handling 
+        if sentiment_result is None:
+            return 0.0
+        
+        # Extract scores
+        positive_score = sentiment_result.get('positive_score', 0.0)
+        negative_score = sentiment_result.get('negative_score', 0.0)
+        
+        # Calculate total sentiment 
+        total_score = positive_score + negative_score
+        
+        # error handle for if both P and N are 0
+        if total_score == 0:
+            return 0.0
+        
+        # Calculate how far apart the scores are
+        score_difference = abs(positive_score - negative_score)
+        
+        # Calculate balance ratio (0-1 where 0 is perfectly balanced)
+        balance_ratio = score_difference / total_score
+        
+        # Invert to get volatility
+        balance_volatility = 1.0 - balance_ratio
+        
+        # Scale to appropriate range
+        component_score = balance_volatility * 35
+        
+        return component_score
+    
+    
+    def _calculate_contradiction_volatility(self, contradiction_result):
+        """
+        (Step 2)
+        Calculate volatility from headline contradictions.
+        Conflicting headlines = market confusion = volatile.
+        
+        Returns: 0-25 points
+        """
+        
+        # Error check: if there is no contradiction 
+        if contradiction_result is None:
+            return 0.0
+        
+        # Check if contradictions is there
+        contradiction_detected = contradiction_result.get('contradiction_detected', False)
+        
+        # Chose is it volatile or not
+        if contradiction_detected:
+            return 25.0
+        else:
+            return 0.0
+    
+    
+    def _calculate_frequency_volatility(self, frequency_result):
+        """
+            (Step 3)
+         Calculate volatility from mention frequency.
+        High frequency = sudden attention spike = potential trend shift.
+        
+        Returns: 0-20 points
+        """
+        
+        # Error check; No frequency data
+        if frequency_result is None:
+            return 0.0
+
+        attention_level = frequency_result.get('attention_level', 'LOW')
+        
+        # Evaluate based on attention level
+        if attention_level == 'HIGH':
+            return 20.0
+        elif attention_level == 'MEDIUM':
+            return 10.0
+        else:
+            return 0.0
+    def _calculate_emotion_volatility(self, keyword_matches):
+        """
+        (Step 4)
+        Calculate volatility from emotional language intensity.
+        Strong emotional keywords = market instability.
+        
+        Returns: 0-20 points
+        """
+        
+
+        # Count emotional language keywords found
+        emotion_count = 0
+        
+        # Loop through matches
+        for match in keyword_matches:
+            category = match['category']
+            if 'strong' in category: # Check for strong sentiment keywords
+                emotion_count += 1
+            elif category == 'volatility_emotional': # Check for volatility emotional keywords
+                emotion_count += 1
+            elif category == 'modifier_intensifier':# Check for intensifier modifiers
+                emotion_count += 1
+        
+        # Each emotional keyword adds 2 points 
+        emotion_score = emotion_count * 2
+        if emotion_score > 20:
+            emotion_score = 20
+        return float(emotion_score)
+    
+    
+    def _determine_confidence(self, volatility_score):
+        """
+        Step 5
+        Determine confidence level in trend predictions.
+        Inverse relationship: high volatility = low confidence.
+        """
+        
+        # Check against thresholds
+        if volatility_score <= self.confidence_thresholds['HIGH']:
+            return 'HIGH'
+        elif volatility_score <= self.confidence_thresholds['MODERATE']:
+            return 'MODERATE'
+        else:
+            return 'LOW'
+    
+    
+    def _generate_interpretation(self, total_volatility, balance, contradiction, frequency, emotion):
+        """
+        Generate userr friendly interpretation of volatility.
+        """
+        
+        # Start with initial interpretation
+        if total_volatility <= 30:
+            base = "Low volatility detected - market sentiment is stable and clear."
+        elif total_volatility <= 60:
+            base = "Moderate volatility detected - some market uncertainty present."
+        else:
+            base = "High volatility detected - significant market uncertainty and instability."
+        
+        # Add details to imp[rove accuracy]
+        contributors = []
+        
+        if balance > 20:
+            contributors.append("conflicting sentiment scores")
+        
+        if contradiction > 0:
+            contributors.append("contradictory headlines")
+        
+        if frequency > 0:
+            contributors.append("sudden attention spike")
+        
+        if emotion > 10:
+            contributors.append("strong emotional language")
+        
+        # Build final interpretation
+        if contributors:
+            details = ", ".join(contributors)
+            interpretation = f"{base} Primary factors: {details}."
+        else:
+            interpretation = base
+        
+        return interpretation
+
+
+# ============================================================================
+# TEST CODE
+# ============================================================================
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+print("=" * 70)
+print("TREND-VOLATILITY ANALYZER TESTS")
+print("=" * 70)
+
+# Initialize analyzer
+from keywords import CATEGORY_METADATA
+volatility_analyzer = TrendVolatilityAnalyzer(article_category=None, category_metadata=CATEGORY_METADATA)
+
+
+# Test Case 1: Stable market (low volatility)
+print("\n" + "=" * 70)
+print("TEST 1: Stable Market (Low Volatility)")
+print("=" * 70)
+
+sentiment1 = {
+    'positive_score': 40.0,
+    'negative_score': 5.0,
+    'overall_score': 35.0,
+    'sentiment': 'POSITIVE'
+}
+
+frequency1 = {
+    'mention_count': 3,
+    'attention_level': 'LOW'
+}
+
+contradiction1 = {
+    'contradiction_detected': False
+}
+
+matches1 = [
+    {'keyword': 'growth', 'category': 'sentiment_positive_strong', 'position': 100, 'context': '...'}
+]
+
+result1 = volatility_analyzer.analyze(sentiment1, frequency1, contradiction1, matches1)
+
+print(f"\nVolatility Score: {result1['volatility_score']}/100")
+print(f"Confidence Level: {result1['confidence_level']}")
+print(f"\nComponent Breakdown:")
+print(f"  Sentiment Balance: {result1['components']['sentiment_balance']}/35")
+print(f"  Contradictions: {result1['components']['contradictions']}/25")
+print(f"  Frequency Spike: {result1['components']['frequency_spike']}/20")
+print(f"  Emotional Intensity: {result1['components']['emotional_intensity']}/20")
+print(f"\nInterpretation: {result1['interpretation']}")
+
+
+# Test Case 2: Highly volatile market
+print("\n" + "=" * 70)
+print("TEST 2: Highly Volatile Market")
+print("=" * 70)
+
+sentiment2 = {
+    'positive_score': 25.0,
+    'negative_score': 23.0,  # Very close scores = volatile
+    'overall_score': 2.0,
+    'sentiment': 'NEUTRAL'
+}
+
+frequency2 = {
+    'mention_count': 15,
+    'attention_level': 'HIGH'  # Sudden attention spike
+}
+
+contradiction2 = {
+    'contradiction_detected': True  # Conflicting headlines
+}
+
+matches2 = [
+    {'keyword': 'crisis', 'category': 'sentiment_negative_strong', 'position': 50, 'context': '...'},
+    {'keyword': 'dramatic', 'category': 'volatility_emotional', 'position': 100, 'context': '...'},
+    {'keyword': 'shocking', 'category': 'volatility_emotional', 'position': 150, 'context': '...'},
+    {'keyword': 'severe', 'category': 'modifier_intensifier', 'position': 200, 'context': '...'},
+    {'keyword': 'unprecedented', 'category': 'volatility_emotional', 'position': 250, 'context': '...'},
+]
+
+result2 = volatility_analyzer.analyze(sentiment2, frequency2, contradiction2, matches2)
+
+print(f"\nVolatility Score: {result2['volatility_score']}/100")
+print(f"Confidence Level: {result2['confidence_level']}")
+print(f"\nComponent Breakdown:")
+print(f"  Sentiment Balance: {result2['components']['sentiment_balance']}/35")
+print(f"  Contradictions: {result2['components']['contradictions']}/25")
+print(f"  Frequency Spike: {result2['components']['frequency_spike']}/20")
+print(f"  Emotional Intensity: {result2['components']['emotional_intensity']}/20")
+print(f"\nInterpretation: {result2['interpretation']}")
+
+
+# Test Case 3: Moderate volatility
+print("\n" + "=" * 70)
+print("TEST 3: Moderate Volatility")
+print("=" * 70)
+
+sentiment3 = {
+    'positive_score': 30.0,
+    'negative_score': 15.0,  # Somewhat balanced
+    'overall_score': 15.0,
+    'sentiment': 'POSITIVE'
+}
+
+frequency3 = {
+    'mention_count': 7,
+    'attention_level': 'MEDIUM'
+}
+
+contradiction3 = {
+    'contradiction_detected': False
+}
+
+matches3 = [
+    {'keyword': 'concern', 'category': 'sentiment_negative_moderate', 'position': 100, 'context': '...'},
+    {'keyword': 'significant', 'category': 'modifier_intensifier', 'position': 150, 'context': '...'},
+]
+
+result3 = volatility_analyzer.analyze(sentiment3, frequency3, contradiction3, matches3)
+
+print(f"\nVolatility Score: {result3['volatility_score']}/100")
+print(f"Confidence Level: {result3['confidence_level']}")
+print(f"\nComponent Breakdown:")
+print(f"  Sentiment Balance: {result3['components']['sentiment_balance']}/35")
+print(f"  Contradictions: {result3['components']['contradictions']}/25")
+print(f"  Frequency Spike: {result3['components']['frequency_spike']}/20")
+print(f"  Emotional Intensity: {result3['components']['emotional_intensity']}/20")
+print(f"\nInterpretation: {result3['interpretation']}")
+
+
+# Test Case 4: Edge case - no data
+print("\n" + "=" * 70)
+print("TEST 4: Edge Case - Missing Data")
+print("=" * 70)
+
+result4 = volatility_analyzer.analyze(None, None, None, [])
+
+print(f"\nVolatility Score: {result4['volatility_score']}/100")
+print(f"Confidence Level: {result4['confidence_level']}")
+print(f"\nInterpretation: {result4['interpretation']}")
+''''''
