@@ -1,0 +1,173 @@
+class EventTrendsDatabase:
+    """
+    Stores historical event analysis results for trend prediction.
+    """
+    
+    def __init__(self, csv_filepath="event_trends.csv"):
+        self.csv_path = csv_filepath
+        
+        # Columns
+        self.fieldnames = [
+            'timestamp',
+            'product', 
+            'sector',
+            'event_type',
+            'sentiment_score',
+            'risk_score',
+            'volatility_score',
+            'confidence_level',
+            'trend_direction'
+        ]
+        
+        # Create CSV if doesn't exist
+        self._initialize_csv()
+    
+    
+    def _initialize_csv(self):
+        """Create CSV file with headers if it doesn't exist."""
+        if os.path.exists(self.csv_path):
+            return
+        # Create new file with headers
+        try:
+            with open(self.csv_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writeheader()
+        except IOError as e:
+            print(f"Error creating CSV file: {e}")
+    
+    
+    def _validate_row(self, row_dict):
+        """
+        Check all headers have what is required from them
+        """
+        # Check required fields
+        required = ['timestamp', 'sector', 'event_type']
+        for field in required:
+            if field not in row_dict:
+                return False
+            if not row_dict[field]:
+                return False
+        
+        # Check numeric fields can convert
+        numeric_fields = ['sentiment_score', 'risk_score', 'volatility_score']
+        for field in numeric_fields:
+            if field in row_dict and row_dict[field]:
+                try:
+                    float(row_dict[field])
+                except ValueError:
+                    return False
+        return True
+    
+    
+    def save_event(self, event_data):
+        """
+        Save a new event analysis to the CSV file.
+        """
+        # Validate data 
+        if not self._validate_row(event_data):
+            print("Error: Invalid event data")
+            return False
+        
+        # Add timestamp 
+        if 'timestamp' not in event_data or not event_data['timestamp']:
+            event_data['timestamp'] = datetime.now().isoformat()
+        
+        # Try to append to CSV
+        try:
+            with open(self.csv_path, 'a', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writerow(event_data)
+            return True
+        except IOError as e:
+            print(f"Error writing to CSV: {e}")
+            return False
+    
+    
+    def query_events(self, sector, event_type):
+        """
+        Find all past events matching the sector and event type.
+        Returns list of matching event dictionaries.
+        """
+        matches = []
+        
+        # Oopen and read CSV
+        try:
+            with open(self.csv_path, 'r', newline='') as f:
+                reader = csv.DictReader(f)
+                
+                # Loop through each row
+                for row in reader:
+                    if not self._validate_row(row):
+                        continue
+                    
+                    # Check if matches
+                    if row['sector'] == sector and row['event_type'] == event_type:
+                        matches.append(row)
+            return matches
+            
+        except FileNotFoundError:
+            return []
+    
+    
+    def predict_trend(self, sector, event_type):
+        """
+        Predict trend direction based on past events.
+        Returns dict with prediction and confidence.
+        """
+
+        events = self.query_events(sector, event_type)
+        if len(events) < 3:# Check if enough data to come to a concltuion without a skew
+            return {
+                'prediction': 'INSUFFICIENT_DATA',
+                'confidence': 0.0,
+                'sample_size': len(events)
+            }
+        
+        # calculator each trend direction
+        upward = 0
+        downward = 0
+        neutral = 0
+        for event in events:
+            direction = event['trend_direction']
+            
+            if direction == 'UPWARD':
+                upward += 1
+            elif direction == 'DOWNWARD':
+                downward += 1
+            else:
+                neutral += 1
+        
+        # Find winner
+        total = len(events)
+        if upward >= downward and upward >= neutral:
+            winner = 'UPWARD'
+            winner_count = upward
+        elif downward >= upward and downward >= neutral:
+            winner = 'DOWNWARD'
+            winner_count = downward
+        else:
+            winner = 'NEUTRAL'
+            winner_count = neutral
+        # Evaluate for a winner
+        confidence = (winner_count / total) * 100
+        return {
+            'prediction': winner,
+            'confidence': round(confidence, 1),
+            'sample_size': total
+        }
+    
+    def calculate_trend_direction(self, sentiment_score, volatility_score):
+        """
+        Calculate trend direction from sentiment and volatility scores.
+        """
+        # High volatility = unreliable prediction
+        if volatility_score > 60:
+            return 'NEUTRAL'
+        # Low volatility means we can trust sentiment
+        if sentiment_score > 5:
+            return 'UPWARD'
+        elif sentiment_score < -5:
+            return 'DOWNWARD'
+        else:
+            return 'NEUTRAL'
+
