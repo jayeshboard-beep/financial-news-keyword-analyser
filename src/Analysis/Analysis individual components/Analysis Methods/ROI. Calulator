@@ -1,0 +1,656 @@
+import logging
+from datetime import datetime
+
+
+class ROICalculator(BaseAnalyser):
+    """
+    Combines all analyser outputs to produce final ROI recommendation.
+    
+    Process:
+    1. Calculate opportunity score (sentiment + trend + frequency)
+    2. Calculate risk score (base risk + volatility + contradictions)
+    3. Calculate confidence score (volatility penalties)
+    4. Multiply net score with confidence multiplier
+    5. Determine ROI category from net score
+    6. Generate user friendly recommendation
+    """
+    
+    def __init__(self, category_metadata=None):
+        super().__init__()
+        self.category_metadata = category_metadata
+        
+        # ROI category thresholds
+        self.roi_thresholds = {
+            'STRONG_POSITIVE': 30,
+            'MODERATE_POSITIVE': 15,
+            'WEAK_POSITIVE': 5,
+            'NEUTRAL_HIGH': 5,
+            'NEUTRAL_LOW': -5,
+            'WEAK_NEGATIVE': -15,
+            'MODERATE_NEGATIVE': -30
+        }
+    
+    
+    def calculate_roi(self, analyser_results):
+        """
+        Main method - calculates ROI from all analyser outputs.
+        
+        Inputs:
+                'sentiment': SentimentScorer output,
+                'risk': RiskTagger output,
+                'volatility': TrendVolatilityAnalyser output,
+                'frequency': HeadlineFrequencyTracker output 
+                'contradictions': ContradictionDetector output 
+                'trend_prediction': EventTrendsDatabase output 
+    
+        
+        Returns:
+            Complete ROI analysis with scores and recommendation as a dictionary
+        """
+        
+        # Step 1: Validate inputs
+        validation = self._validate_inputs(analyser_results)
+        if not validation['valid']:
+            return self._generate_error_output(validation['missing'])
+        
+        # Step 2: Extract analyser results
+        sentiment_result = analyser_results['sentiment']
+        risk_result = analyser_results['risk']
+        volatility_result = analyser_results['volatility']
+        frequency_result = analyser_results.get('frequency')
+        contradiction_result = analyser_results.get('contradictions')
+        trend_prediction = analyser_results.get('trend_prediction')
+        
+        # Step 3: Calculate Indivudal scores
+        opportunity_score = self._calculate_opportunity_score(
+            sentiment_result, 
+            trend_prediction, 
+            frequency_result
+        )
+        
+        risk_score = self._calculate_risk_score(
+            risk_result, 
+            volatility_result, 
+            contradiction_result
+        )
+        
+        confidence_score = self._calculate_confidence_score(
+            volatility_result, 
+            trend_prediction, 
+            contradiction_result
+        )
+        
+        # Step 4: Calculate total score using confidence multiplier
+        net_score = self._calculate_net_score(
+            opportunity_score, 
+            risk_score, 
+            confidence_score
+        )
+        
+        # Step 5: Determine ROI category
+        roi_category = self._determine_roi_category(net_score)
+        
+        # Step 6: Generate recommendations
+        user_recommendation = self._generate_user_recommendation(
+            roi_category, 
+            opportunity_score, 
+            risk_score, 
+            confidence_score,
+            risk_result,
+            volatility_result
+        )
+        
+        technical_indicator = self._generate_technical_indicator(
+            roi_category,
+            risk_score,
+            confidence_score
+        )
+        
+        # Step 7: Build output dictionary
+        return self._build_output(
+            roi_category,
+            user_recommendation,
+            technical_indicator,
+            opportunity_score,
+            risk_score,
+            confidence_score,
+            net_score,
+            sentiment_result,
+            risk_result,
+            volatility_result,
+            trend_prediction,
+            analyser_results  # Solution to problem 14: Now passing analyser_results
+        )
+    
+    
+    def _validate_inputs(self, analyser_results):
+        """
+        Check that the essential analysers data was valid
+        
+        Returns:
+            dict: {'valid': bool, 'missing': list}
+        """
+        required = ['sentiment', 'risk', 'volatility']
+        missing = []
+        
+        for key in required:# Loop through to check
+            if key not in analyser_results:
+                missing.append(key)
+            elif analyser_results[key] is None:
+                missing.append(key)
+        
+        if missing:
+            return {'valid': False, 'missing': missing}
+        return {'valid': True, 'missing': []}
+    
+    
+    def _calculate_opportunity_score(self, sentiment_result, trend_prediction, frequency_result): # Step 1
+        """
+        Calculate opportunity score 
+        
+        Build from:
+            Base: sentiment score (normalised to 0-100)
+            Bonus: +20 if upward trend predicted
+            Bonus: +10 if high frequency AND positive sentiment
+        """
+        
+        # Get sentiment score (-100 to +100 range)
+        sentiment_score = sentiment_result.get('overall_score', 0.0)
+        sentiment_type = sentiment_result.get('sentiment', 'NEUTRAL')
+        
+        # Normalise sentiment to 0-100 scale
+        if sentiment_score > 0:
+            base_opportunity = (sentiment_score / 100) * 100  # Scale positive sentiment
+        else:
+            base_opportunity = 0.0
+        
+        # Add trend prediction 
+        if trend_prediction is not None:
+            prediction = trend_prediction.get('prediction', 'NEUTRAL')
+            if prediction == 'UPWARD':
+                base_opportunity += 20
+        
+        # Add frequency 
+        if frequency_result is not None:
+            attention_level = frequency_result.get('attention_level', 'LOW')
+            
+            # Only add frequency bonus if sentiment is positive
+            if attention_level == 'HIGH' and sentiment_type == 'POSITIVE':
+                base_opportunity += 10
+        
+
+        opportunity = min(100, base_opportunity)
+        
+        return round(opportunity, 2)# returns opportunity at 2 dp as required
+    
+    
+    def _calculate_risk_score(self, risk_result, volatility_result, contradiction_result): # Step 2
+        """
+        Calculate risk score (0-100).
+        
+        Components:
+        - Base: risk tagger score
+        - Change if the following:
+            +15 if high volatility (>60)
+            +10 if contradictions detected
+        """
+        
+
+        base_risk = risk_result.get('overall_risk_score', 0.0)
+        volatility_score = volatility_result.get('volatility_score', 0.0)
+        
+        # Adjust for high volatility
+        volatility_adjustment = 0
+        if volatility_score > 60:
+            volatility_adjustment = 15
+        
+        # Adjust for contradictions
+        contradiction_adjustment = 0
+        if contradiction_result is not None:
+            contradiction_detected = contradiction_result.get('contradiction_detected', False)
+            if contradiction_detected:
+                contradiction_adjustment = 10
+        
+        # Calc total using risk cscores
+        total_risk = base_risk + volatility_adjustment + contradiction_adjustment
+        
+
+        risk = min(100, total_risk)
+        
+        return round(risk, 2)
+    
+    
+    def _calculate_confidence_score(self, volatility_result, trend_prediction, contradiction_result): # Step 3
+        """
+        Calculate confidence score (0-100).
+        
+        Work by using negatives(start at 100 then reduce based on the following:)
+        - Volatility penalty (biggest factor)
+        - Sample size penalty (-20 if <5 historical events)
+        - Contradiction penalty (-15 if detected)
+        """
+        
+        # Start with max confidence
+        base_confidence = 100
+        
+        # Volatility is the biggest effect
+        volatility_score = volatility_result.get('volatility_score', 0.0)
+        volatility_penalty = volatility_score
+        
+        # Sample size penalty
+        sample_size_penalty = 0
+        if trend_prediction is not None:
+            sample_size = trend_prediction.get('sample_size', 0)
+            if sample_size < 5:
+                sample_size_penalty = 20
+        
+        # Contradiction penalty
+        contradiction_penalty = 0
+        if contradiction_result is not None:
+            contradiction_detected = contradiction_result.get('contradiction_detected', False)
+            if contradiction_detected:
+                contradiction_penalty = 15
+        
+        # Calculate final confidence
+        confidence = base_confidence - volatility_penalty - sample_size_penalty - contradiction_penalty
+        confidence = max(0, confidence)
+        
+        return round(confidence, 2)
+    
+    
+    def _calculate_net_score(self, opportunity, risk, confidence):#Step 4
+        """
+        Calculate final net score using confidence multiplier.
+        
+        Formula: (opportunity - risk) * (confidence / 100)
+            -Adapted from risk-adjusted return principles
+
+
+        This formula ensures low confidence dramatically reduces the net score thus preventing overconfident predictions in uncertain markets.
+        """
+        
+        raw_score = opportunity - risk
+        confidence_multiplier = confidence / 100
+        net_score = raw_score * confidence_multiplier
+        
+        return round(net_score, 2)
+    
+    
+    def _determine_roi_category(self, net_score):#Step 5
+        """
+        Map net score to ROI category using bounds.
+        
+        7-level system provides realtively detailed insight whilst aalso being simple for users.
+        """
+        
+        if net_score >= self.roi_thresholds['STRONG_POSITIVE']:
+            return 'STRONG_POSITIVE'
+        elif net_score >= self.roi_thresholds['MODERATE_POSITIVE']:
+            return 'MODERATE_POSITIVE'
+        elif net_score >= self.roi_thresholds['WEAK_POSITIVE']:
+            return 'WEAK_POSITIVE'
+        elif net_score >= self.roi_thresholds['NEUTRAL_LOW']:
+            return 'NEUTRAL'
+        elif net_score >= self.roi_thresholds['WEAK_NEGATIVE']:
+            return 'WEAK_NEGATIVE'
+        elif net_score >= self.roi_thresholds['MODERATE_NEGATIVE']:
+            return 'MODERATE_NEGATIVE'
+        else:
+            return 'STRONG_NEGATIVE'
+    
+    
+    def _generate_user_recommendation(self, roi_category, opportunity, risk, confidence, risk_result, volatility_result):
+        """
+        Generate user-friendly recommendation text.
+        
+        1:Uses templates based on ROI category
+        2:then adds specific details about risks and market conditions.
+        """
+        
+        # Base recommendation templates
+        base_templates = {
+            'STRONG_POSITIVE': 'Strong profit potential detected with manageable risk.',
+            'MODERATE_POSITIVE': 'Profit potential exists with notable considerations.',
+            'WEAK_POSITIVE': 'Slight profit potential detected but proceed with caution.',
+            'NEUTRAL': 'Mixed signals detected - no clear investment direction.',
+            'WEAK_NEGATIVE': 'Investment not recommended due to identified concerns.',
+            'MODERATE_NEGATIVE': 'Significant risk detected - avoid investment.',
+            'STRONG_NEGATIVE': 'Severe risk detected - strongly avoid investment.'
+        }
+        
+        recommendation = base_templates[roi_category]
+        
+   
+        primary_risk = risk_result.get('primary_risk')
+        if primary_risk and risk > 50:   # Add specific risk mention if detected
+            recommendation += f' {primary_risk} detected - monitor developments closely.'
+        volatility_level = volatility_result.get('confidence_level', 'MODERATE') # Add volatility warning if high
+        if volatility_level == 'LOW':  # Low confidence = high volatility
+            recommendation += ' High market volatility suggests short-term positioning only.'
+        if 'POSITIVE' in roi_category and confidence < 50: # Add confidence qualifier for positive recommendations
+            recommendation += ' However, low market confidence warrants additional research before committing.'
+        
+        return recommendation
+    
+    
+    def _generate_technical_indicator(self, roi_category, risk_score, confidence_score):
+        """
+        Generate technical trading indicator format.
+        
+        Example: "MODERATE_BUY | RISK: HIGH | CONFIDENCE: 55%"
+        """
+        
+        # Map ROI category to trading action
+        trading_actions = {
+            'STRONG_POSITIVE': 'STRONG_BUY',
+            'MODERATE_POSITIVE': 'MODERATE_BUY',
+            'WEAK_POSITIVE': 'WEAK_BUY',
+            'NEUTRAL': 'HOLD',
+            'WEAK_NEGATIVE': 'WEAK_SELL',
+            'MODERATE_NEGATIVE': 'MODERATE_SELL',
+            'STRONG_NEGATIVE': 'STRONG_SELL'
+        }
+        
+        action = trading_actions[roi_category]
+        
+        # Determine risk level
+        if risk_score >= 70:
+            risk_level = 'CRITICAL'
+        elif risk_score >= 50:
+            risk_level = 'HIGH'
+        elif risk_score >= 30:
+            risk_level = 'MODERATE'
+        else:
+            risk_level = 'LOW'
+        
+        # Format technical indicator for easy to read for user
+        technical = f"{action} | RISK: {risk_level} | CONFIDENCE: {confidence_score}%"
+        
+        return technical
+    
+    
+    def _build_output(self, roi_category, user_recommendation, technical_indicator,
+                     opportunity, risk, confidence, net_score,
+                     sentiment_result, risk_result, volatility_result, trend_prediction,
+                     analyser_results):  #  Added analyser_results parameter to fix problem 13
+        """
+        Assemble complete output dictionary with all analysis details.
+        
+        Structure designed for both immediate use + documentation.
+        """
+        
+        output = {
+            # Top-level summary 
+            'roi_indicator': roi_category,
+            'recommendation': user_recommendation,
+            'technical_indicator': technical_indicator,
+            
+            # Score breakdown
+            'scores': {
+                'opportunity': opportunity,
+                'risk': risk,
+                'confidence': confidence,
+                'net_score': net_score
+            },
+            
+            # Explanation details
+            'opportunity_breakdown': {
+                'sentiment_contribution': sentiment_result.get('overall_score', 0.0),
+                'trend_contribution': 20 if (trend_prediction and trend_prediction.get('prediction') == 'UPWARD') else 0,
+                'frequency_contribution': 10 if self._frequency_added_opportunity(sentiment_result, analyser_results.get('frequency')) else 0
+            },
+            
+            'risk_breakdown': {
+                'base_risk': risk_result.get('overall_risk_score', 0.0),
+                'volatility_adjustment': 15 if volatility_result.get('volatility_score', 0) > 60 else 0,
+                'contradiction_adjustment': 10 if (analyser_results.get('contradictions') and analyser_results.get('contradictions').get('contradiction_detected')) else 0
+            },
+            
+            'confidence_breakdown': {
+                'volatility_penalty': volatility_result.get('volatility_score', 0.0),
+                'sample_size_penalty': 20 if (trend_prediction and trend_prediction.get('sample_size', 0) < 5) else 0,
+                'contradiction_penalty': 15 if (analyser_results.get('contradictions') and analyser_results.get('contradictions').get('contradiction_detected')) else 0
+            },
+            
+            # Key insights that the user can read
+            'key_factors': {
+                'primary_risk': risk_result.get('primary_risk'),
+                'trend_direction': trend_prediction.get('prediction') if trend_prediction else 'UNKNOWN',
+                'volatility_level': volatility_result.get('confidence_level', 'UNKNOWN'),
+                'sentiment': sentiment_result.get('sentiment', 'UNKNOWN')
+            },
+            
+            # Metadata
+            'timestamp': datetime.now().isoformat(),
+            'confidence_level': self._map_confidence_to_level(confidence)
+        }
+        
+        return output
+    
+    
+    def _frequency_added_opportunity(self, sentiment_result, frequency_result):
+        """
+        Helper class for determinening if frequency contributes to opportunity.
+        """
+        if frequency_result is None:
+            return False
+        
+        attention = frequency_result.get('attention_level', 'LOW')
+        sentiment = sentiment_result.get('sentiment', 'NEUTRAL')
+        
+        return attention == 'HIGH' and sentiment == 'POSITIVE'
+    
+    
+    def _map_confidence_to_level(self, confidence_score):
+        """
+        Convert numeric confidence to level (eg HIGH)
+        """
+        if confidence_score >= 70:
+            return 'HIGH'
+        elif confidence_score >= 40:
+            return 'MODERATE'
+        else:
+            return 'LOW'
+    
+    
+    def _generate_error_output(self, missing_data):
+        """
+        Return error output when data is missing.
+        """
+        missing_str = ', '.join(missing_data)
+        
+        return {
+            'roi_indicator': 'INSUFFICIENT_DATA',
+            'recommendation': f'Cannot calculate ROI: missing critical data ({missing_str}). Please ensure all required analysers completed successfully.',
+            'technical_indicator': 'ERROR',
+            'scores': None,
+            'error': {
+                'type': 'MISSING_DATA',
+                'missing_analysers': missing_data
+            },
+            'timestamp': datetime.now().isoformat()
+        }
+
+
+# ============================================================================
+# TEST CODE
+# ============================================================================
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+    
+    print("=" * 70)
+    print("ROI CALCULATOR TESTS")
+    print("=" * 70)
+    
+    # Initialize calculator
+    roi_calculator = ROICalculator()
+    
+    
+    # Test Case 1: Strong Positive Scenario
+    print("\n" + "=" * 70)
+    print("TEST 1: Strong Positive Signal (NVIDIA Growth Example)")
+    print("=" * 70)
+    
+    test1_results = {
+        'sentiment': {
+            'overall_score': 55.0,
+            'sentiment': 'POSITIVE',
+            'positive_score': 60.0,
+            'negative_score': 5.0
+        },
+        'risk': {
+            'overall_risk_score': 15.0,
+            'primary_risk': None,
+            'risk_count': 0
+        },
+        'volatility': {
+            'volatility_score': 25.0,
+            'confidence_level': 'HIGH'
+        },
+        'frequency': {
+            'attention_level': 'HIGH',
+            'percentage': 80.0
+        },
+        'contradictions': {
+            'contradiction_detected': False
+        },
+        'trend_prediction': {
+            'prediction': 'UPWARD',
+            'confidence': 75.0,
+            'sample_size': 8
+        }
+    }
+    
+    result1 = roi_calculator.calculate_roi(test1_results)
+    
+    print(f"\nROI Indicator: {result1['roi_indicator']}")
+    print(f"Recommendation: {result1['recommendation']}")
+    print(f"Technical: {result1['technical_indicator']}")
+    print(f"\nScores:")
+    print(f"  Opportunity: {result1['scores']['opportunity']}/100")
+    print(f"  Risk: {result1['scores']['risk']}/100")
+    print(f"  Confidence: {result1['scores']['confidence']}/100")
+    print(f"  Net Score: {result1['scores']['net_score']}")
+    
+    
+    # Test Case 2: Mixed Signals (High Opportunity + High Risk)
+    print("\n" + "=" * 70)
+    print("TEST 2: Mixed Signals (Tesla - Growth + Lawsuit)")
+    print("=" * 70)
+    
+    test2_results = {
+        'sentiment': {
+            'overall_score': 35.0,
+            'sentiment': 'POSITIVE',
+            'positive_score': 40.0,
+            'negative_score': 5.0
+        },
+        'risk': {
+            'overall_risk_score': 65.0,
+            'primary_risk': 'Legal Risk',
+            'risk_count': 5
+        },
+        'volatility': {
+            'volatility_score': 68.0,
+            'confidence_level': 'LOW'
+        },
+        'frequency': {
+            'attention_level': 'HIGH',
+            'percentage': 75.0
+        },
+        'contradictions': {
+            'contradiction_detected': True
+        },
+        'trend_prediction': {
+            'prediction': 'UPWARD',
+            'confidence': 65.0,
+            'sample_size': 6
+        }
+    }
+    
+    result2 = roi_calculator.calculate_roi(test2_results)
+    
+    print(f"\nROI Indicator: {result2['roi_indicator']}")
+    print(f"Recommendation: {result2['recommendation']}")
+    print(f"Technical: {result2['technical_indicator']}")
+    print(f"\nScores:")
+    print(f"  Opportunity: {result2['scores']['opportunity']}/100")
+    print(f"  Risk: {result2['scores']['risk']}/100")
+    print(f"  Confidence: {result2['scores']['confidence']}/100")
+    print(f"  Net Score: {result2['scores']['net_score']}")
+    
+    
+    # Test Case 3: Strong Negative (Boeing Crisis)
+    print("\n" + "=" * 70)
+    print("TEST 3: Strong Negative (Boeing Crisis)")
+    print("=" * 70)
+    
+    test3_results = {
+        'sentiment': {
+            'overall_score': -45.0,
+            'sentiment': 'NEGATIVE',
+            'positive_score': 5.0,
+            'negative_score': 50.0
+        },
+        'risk': {
+            'overall_risk_score': 75.0,
+            'primary_risk': 'Quality/Operations Risk',
+            'risk_count': 8
+        },
+        'volatility': {
+            'volatility_score': 70.0,
+            'confidence_level': 'LOW'
+        },
+        'frequency': {
+            'attention_level': 'HIGH',
+            'percentage': 80.0
+        },
+        'contradictions': {
+            'contradiction_detected': False
+        },
+        'trend_prediction': {
+            'prediction': 'DOWNWARD',
+            'confidence': 80.0,
+            'sample_size': 10
+        }
+    }
+    
+    result3 = roi_calculator.calculate_roi(test3_results)
+    
+    print(f"\nROI Indicator: {result3['roi_indicator']}")
+    print(f"Recommendation: {result3['recommendation']}")
+    print(f"Technical: {result3['technical_indicator']}")
+    print(f"\nScores:")
+    print(f"  Opportunity: {result3['scores']['opportunity']}/100")
+    print(f"  Risk: {result3['scores']['risk']}/100")
+    print(f"  Confidence: {result3['scores']['confidence']}/100")
+    print(f"  Net Score: {result3['scores']['net_score']}")
+    
+    
+    # Test Case 4: Missing Data Error
+    print("\n" + "=" * 70)
+    print("TEST 4: Missing Critical Data")
+    print("=" * 70)
+    
+    test4_results = {
+        'sentiment': None,  # Missing!
+        'risk': {
+            'overall_risk_score': 30.0,
+            'primary_risk': None
+        },
+        'volatility': {
+            'volatility_score': 40.0,
+            'confidence_level': 'MODERATE'
+        }
+    }
+    
+    result4 = roi_calculator.calculate_roi(test4_results)
+    
+    print(f"\nROI Indicator: {result4['roi_indicator']}")
+    print(f"Recommendation: {result4['recommendation']}")
+    print(f"Error Details: {result4.get('error')}")
+    
+    print("\n" + "=" * 70)
+    print("TESTS COMPLETE")
+    print("=" * 70)
