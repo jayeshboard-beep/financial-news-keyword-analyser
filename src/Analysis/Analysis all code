@@ -1117,10 +1117,10 @@ class ContradictionDetector(BaseAnalyzer):
     3:Check for contraciction/contradicting pairs
     """
     
-    def __init__(self, aho_corasick, keyword_dict):
+    def __init__(self, aho_corasick, category_metadata):
         super().__init__()
         self.aho_corasick = aho_corasick
-        self.keyword_dict = keyword_dict
+        self.category_metadata = category_metadata 
     
     def analyze(self, headlines):
 
