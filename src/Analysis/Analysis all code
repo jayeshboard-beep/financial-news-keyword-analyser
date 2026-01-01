@@ -1195,13 +1195,13 @@ class ContradictionDetector(BaseAnalyzer):
             return 'NEUTRAL'
     
     def _get_keyword_weight(self, keyword):
-
-        #Get sentiment weight for a keyword from dictionary.
-        for category, data in self.keyword_dict.items():
-            if keyword in data['keywords']:
-                return data['weight']
+ 
+        for category, data in self.category_metadata.items():
+            if keyword in data.get('keywords', []):
+                # Return sentiment_score if it exists, otherwise 0
+                return data.get('sentiment_score', 0)
         
-        return 0 
+        return 0  
     
     def _find_conflicting_pairs(self, headline_sentiments):
 
