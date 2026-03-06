@@ -92,77 +92,77 @@ class AhoCorasick:
                 queue.append(child_node)
 
 
-def search(self, text):
-    #used for Seaching for keywords within made nodes
-    #Inputs:String to sort through
-    #Output: Dictinary with all key features
-
+    def search(self, text):
+        #used for Seaching for keywords within made nodes
+        #Inputs:String to sort through
+        #Output: Dictinary with all key features
     
-    text = text.lower()
-    results = []
-    current_node = self.root
-    
-
-    for position, char in enumerate(text):
-        while current_node is not self.root and char not in current_node.children:
-            current_node = current_node.fail_link
         
-        # Go next node if paths is der
-        if char in current_node.children:
-            current_node = current_node.children[char]
-        else:
-            current_node = self.root
+        text = text.lower()
+        results = []
+        current_node = self.root
         
-        if current_node.is_end_of_word:
-            # Release all keywordfs at end of this node
-            for keyword in current_node.keywords:
-                match = self._create_match(text, keyword, position)
-                results.append(match)
+    
+        for position, char in enumerate(text):
+            while current_node is not self.root and char not in current_node.children:
+                current_node = current_node.fail_link
+            
+            # Go next node if paths is der
+            if char in current_node.children:
+                current_node = current_node.children[char]
+            else:
+                current_node = self.root
+            
+            if current_node.is_end_of_word:
+                # Release all keywordfs at end of this node
+                for keyword in current_node.keywords:
+                    match = self._create_match(text, keyword, position)
+                    results.append(match)
+            
+            # Scan for overlapping lips
+            holding_nodes = current_node.output_link
+            while holding_nodes is not None:
+                for keyword in holding_nodes.keywords:
+                    match = self._create_match(text, keyword, position)
+                    results.append(match)
+                holding_nodes = holding_nodes.output_link
         
-        # Scan for overlapping lips
-        holding_nodes = current_node.output_link
-        while holding_nodes is not None:
-            for keyword in holding_nodes.keywords:
-                match = self._create_match(text, keyword, position)
-                results.append(match)
-            holding_nodes = holding_nodes.output_link
+        return results
     
-    return results
-
-def _create_match(self, text, keyword, end_position):
-    #Create a seperate match dictionar
-    #:Input:Text:The full text being seraced
-            #: ketword:he Kewords that is mached
-            #:End-Position: Chracter index of the last char. in the keywrod 
-
-    # CWhere key starts
-    start_position = end_position - len(keyword) + 1
+    def _create_match(self, text, keyword, end_position):
+        #Create a seperate match dictionar
+        #:Input:Text:The full text being seraced
+                #: ketword:he Kewords that is mached
+                #:End-Position: Chracter index of the last char. in the keywrod 
     
-    # Associate with keyword 
-    category = self.keyword_dict[keyword]
-    context = self._extract_context(text, start_position, len(keyword))
+        # CWhere key starts
+        start_position = end_position - len(keyword) + 1
+        
+        # Associate with keyword 
+        category = self.keyword_dict[keyword]
+        context = self._extract_context(text, start_position, len(keyword))
+        
+        return {
+            'keyword': keyword,
+            'category': category,
+            'position': start_position,
+            'end_position': end_position,
+            'context': context
+        }
     
-    return {
-        'keyword': keyword,
-        'category': category,
-        'position': start_position,
-        'end_position': end_position,
-        'context': context
-    }
-
-def _extract_context(self, text, start_pos, keyword_length, context_size=50):
-
-    #Extract surrounding context for a matched keyword.
- 
-    keyword_end = start_pos + keyword_length
-    context_start = max(0, start_pos - context_size)
-    context_end = min(len(text), keyword_end + context_size)
-    before = text[context_start:start_pos]
-    keyword_text = text[start_pos:keyword_end]
-    after = text[keyword_end:context_end]
-    if context_start > 0:
-        before = "..." + before
-    if context_end < len(text):
-        after = after + "..."
+    def _extract_context(self, text, start_pos, keyword_length, context_size=50):
     
-    return before + "[" + keyword_text + "]" + after
+        #Extract surrounding context for a matched keyword.
+     
+        keyword_end = start_pos + keyword_length
+        context_start = max(0, start_pos - context_size)
+        context_end = min(len(text), keyword_end + context_size)
+        before = text[context_start:start_pos]
+        keyword_text = text[start_pos:keyword_end]
+        after = text[keyword_end:context_end]
+        if context_start > 0:
+            before = "..." + before
+        if context_end < len(text):
+            after = after + "..."
+        
+        return before + "[" + keyword_text + "]" + after
