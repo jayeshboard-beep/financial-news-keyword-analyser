@@ -149,7 +149,7 @@ class TrendVolatilityAnalyzer(BaseAnalyzer):
         # Evaluate based on attention level
         if attention_level == 'HIGH':
             return 20.0
-        elif attention_level == 'MEDIUM':
+        elif attention_level == 'MODERATE':
             return 10.0
         else:
             return 0.0
