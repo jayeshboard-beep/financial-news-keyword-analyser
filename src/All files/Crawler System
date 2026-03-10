@@ -1,1 +1,410 @@
+"""
+Crawler System: Web scraping infrastructure
+Contains Downloader, Parsers, Spider, Scheduler, and DOMParser.
+"""
 
+import re
+import logging
+import html
+import requests
+from datetime import datetime
+
+
+
+
+
+
+class ParserError(Exception):
+    pass
+class InvalidHTMLError(ParserError):
+    """Raised when HTML is malformed or empty"""
+    pass
+
+#Downloader:Downloads all the URL's from The scheduler
+class Downloader:
+
+    
+    def __init__(self,):
+        pass
+    def fetch(self, url):
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                return response.text 
+            else:
+                print(f"Error: Got status code {response.status_code} for {url}")
+                return None
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching {url}: {e}")
+            return None
+
+
+
+# BAse Parser + Child Parsers
+
+
+class BaseParser:   
+    #General base class for all HTML parsers.
+    #Provides common Methods for HTML parsing and raw_html cleaning.
+     
+    def __init__(self):
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+    def extract(self, html):
+
+        #Inputs:html content to parse
+        #Retruns extracted content 
+        
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement extract() method"
+        )
+    def strip_html_tags(self, raw_html):
+
+
+        #Inputs:raw_html containing HTML tags
+        #Returns Clean raw_html withut HTML tags
+ 
+        
+        if not raw_html:
+            return ""
+        
+        # Remove HTML tags: matches <...> 
+        clean = re.sub(r'<[^>]+>', '', raw_html)
+        return clean.strip()
+    def clean_raw_html(self, raw_html):
+
+        
+        if not raw_html:
+            return ""
+       
+    # Decode common HTML 
+        raw_html = html.unescape(raw_html)
+   
+    # Normalize whitespace: replace multiple spaces/newlines with single space
+        raw_html = re.sub(r'\s+', ' ', raw_html)
+        
+        return raw_html.strip()
+    def validate_html(self, html):
+
+        #Validate the HTML before forwarding it
+        #Input: HTML to validate
+        #Returns "InvalidHTMLError" if HTMl is too short/empty
+ 
+        if html is None:
+            raise InvalidHTMLError("HTML is None") 
+        if not isinstance(html, str):
+            raise InvalidHTMLError(f"HTML must be string, got {type(html)}") 
+        if len(html.strip()) == 0:
+            raise InvalidHTMLError("HTML is empty")
+        if len(html) < 10:
+            raise InvalidHTMLError("HTML is too short to be valid")
+
+
+
+class HeadlineParser(BaseParser):
+      #Inputs:tags (list, optional): List of heading tags to extract.
+    def __init__(self, tags=None):
+        super().__init__()
+        self.tags = tags or ['h1', 'h2', 'h3']
+        self.logger.info(f"Initialized HeadlineParser with tags: {self.tags}")
+    
+    def extract(self, html):
+            #Extract headlines from specified heading tags.
+            #Inputs: Html
+            #Returns List of cleaned headline strings
+            
+            self.validate_html(html)
+            tags_pattern = '|'.join(self.tags)
+            pattern = f'<({tags_pattern})[^>]*>(.*?)</\\1>'
+            matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+            self.logger.info(f"Found {len(matches)} headline matches")
+
+            # clean headers
+            results = []
+            for tag, content in matches:
+                cleaned = self.strip_html_tags(content)
+                cleaned = self.clean_raw_html(cleaned)
+                if cleaned:
+                    results.append(cleaned)
+            
+            self.logger.info(f"Extracted {len(results)} valid headlines")
+            return results
+
+
+class ArticleParser(BaseParser):
+
+    #Parser for extracting full article content
+ 
+    def __init__(self, article_html='article'):
+      
+        
+       #Inputs: Article HTML
+
+        
+        super().__init__()
+        self.article_html = article_html
+        self.logger.info(f"Initialized ArticleParser with tag: {article_html}")
+    
+    def extract(self, html):
+
+       # Extract article content from container tags.
+        
+        #Input:HTML content  
+        #Returns  List of article content strings
+
+            
+    #Find raw_html 
+        self.validate_html(html)
+        
+        pattern = f'<{self.article_html}[^>]*>(.*?)</{self.article_html}>'
+        
+        matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+        
+        self.logger.info(f"Found {len(matches)} article matches")
+        
+        # Clean article
+        results = []
+        for content in matches:
+            cleaned = self.strip_html_tags(content)
+            cleaned = self.clean_raw_html(cleaned)
+            
+            if cleaned:
+                results.append(cleaned)
+        
+        return results
+
+
+class MetadataParser(BaseParser):
+    """
+    Parser for extracting article category/type from HTML metadata.
+    Used in Stage 3 to classify articles for risk analysis.
+
+    """
+    
+    def __init__(self):
+        #Init meta parse
+        super().__init__()
+        self.logger.info("Initialized MetadataParser")
+    
+    def extract(self, html):
+
+        #Find + extract article tpye
+        #Input:HTML content
+        #Returns: Article category/type or "Unknown" if not found
+        self.validate_html(html)
+
+        
+        # Try diff meta tag patterns for category/section
+        category_patterns = [
+            r'<meta[^>]*name=["\']section["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']section["\']',
+            r'<meta[^>]*name=["\']category["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']category["\']',
+            r'<meta[^>]*property=["\']article:section["\'][^>]*content=["\']([^"\']*)["\']',
+            r'<meta[^>]*content=["\']([^"\']*)["\'][^>]*property=["\']article:section["\']',
+        ]
+        
+        # Brute force each pattern(Masybe find idff way for this)
+        for pattern in category_patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                category = self.clean_raw_html(match.group(1))
+                self.logger.info(f"Found category: {category}")
+                return category
+        self.logger.warning("No category metadata found")
+        return "Unknown"
+
+
+class LinkParser(BaseParser):#Parser for extracting links from HTML for discovering new URLs to crawl.
+    
+    
+    def __init__(self, starting_URL=None):#Input: OG URL for resolving relative links
+        super().__init__()
+        self.starting_URL = starting_URL
+        self.logger.info(f"Initialized LinkParser with starting_URL: {starting_URL}")
+
+    
+    def extract(self, html):        #Extract all links (href attributes) from HTML.
+            #Input:html (str): HTML content
+            #Returns: List of URLs found in href attributes
+        self.validate_html(html)
+        
+        # Pattern to match href attributes
+        pattern = r'href=["\']([^"\']*)["\']'
+        matches = re.findall(pattern, html, re.IGNORECASE)
+        
+        # Filter out empty links/anchor
+        links = []
+        for link in matches:
+            link = link.strip()
+            if not link or link.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+                continue
+            links.append(link)
+        self.logger.info(f"Extracted {len(links)} links")
+        return links
+
+class Spider:
+    """
+    Coordinates parsing and keyword matching.
+    Extracts headlines and identifies which contain target keywords.
+    """
+    
+    def __init__(self, keywords):
+        # Normalize all keywords to lowercase to improve relaitblity
+        self.keywords = [k.lower() for k in keywords]
+        
+        # Use HeadlineParser to extract headlines
+        self.parser = HeadlineParser(tags=['h1', 'h2', 'h3'])
+    
+    def parse(self, html, url):#Parse HTML and find headlines containing keywords.
+        """.
+        
+       Input:
+            html : HTML content to be parse
+            url : URL of the page (for metadata)
+        
+        Returns:
+            list: List of dicts with matched headlines
+        """
+        # Extract headlines wit headlineaprser
+        headlines = self.parser.extract(html)
+        
+        results = []
+        
+        # Check  headline
+        for headline in headlines:
+            matched_keywords = self._contains_keyword(headline)
+            
+            # Only include headlines that match at least 1 keyword
+            if matched_keywords:
+                results.append({
+                    'headline': headline,
+                    'url': url,
+                    'matched_keywords': matched_keywords,
+                    'timestamp': datetime.now().isoformat()
+                })
+        
+        return results
+
+    def _contains_keyword(self, text):
+        """
+        Check if text contains target keywords.
+        
+        input:
+            text  Text to search (e.g., a headline)
+        Returns:
+            list: List of matched keywords/empty list if none match
+    
+        """
+        # 1 Normalize text to lowercase 
+        text_lower = text.lower()
+        
+        #2: Collect matched keywords
+        matched = []
+        
+        #3: Loop through each keyword
+        for keyword in self.keywords:
+            # check if keywrod der
+            if keyword in text_lower:
+                matched.append(keyword)
+        return matched
+
+
+
+class Scheduler:
+
+#Manage URL queue + prevents duplicate crawling
+
+    def __init__(self):
+        self.visited = set() 
+        self.queue = []
+
+
+    def add_url(self, url):
+        #Add URL to queue if not visited
+        #Input: URL tio add to crawling
+
+        if url not in self.visited:
+            self.queue.append(url)
+            self.visited.add(url)
+
+
+    def get_next_url(self):
+        #Pass next URL onto the Downloader
+        #Outputs URL
+
+        if len(self.queue) != 0:
+            url = self.queue.pop(0)
+            return url
+        else:
+            return None 
+
+
+    def is_empty(self):
+        #Checks if queue is empty
+        #Outputs:true or flase for if no more URL's to crawl
+        return len(self.queue) == 0
+
+
+class DOMParser(BaseParser):
+    def __init__(self, article_tag='article', headline_tags=None):
+      super().__init__()
+   
+      self.article_tag = article_tag
+      self.headline_tags = headline_tags
+      
+      self.article_parser = ArticleParser(article_tag)
+      self.headline_parser = HeadlineParser(headline_tags)
+      self.metadata_parser = MetadataParser()
+      self.logger.info(f"Initialized DOMParser with article_tag='{article_tag}', headline_tags={headline_tags}")
+  
+    def extract(self, html):
+  
+      self.validate_html(html)
+      self.logger.info("Starting content extraction")
+
+        #All inits
+      self.logger.info("Extracting article content...")#Meta article init
+      articles = self.article_parser.extract(html)
+      if articles:
+          articles = [a for a in articles if a.strip()]
+          full_content = "\n\n".join(articles)
+      else:
+          full_content = ""
+      self.logger.info(f"Extracted {len(articles)} article sections")
+      
+      self.logger.info("Extracting headlines...")#Header data initialiser
+      headlines = self.headline_parser.extract(html)
+      self.logger.info(f"Found {len(headlines)} headlines")
+      
+      self.logger.info("Extracting metadata...")#Meta data initialiser
+      category = self.metadata_parser.extract(html)
+      self.logger.info(f"Category: {category}")
+      
+      
+        #Dictionary creater
+      structured_data = {
+          'full_content': full_content,
+          'headlines': headlines,
+          'category': category
+      }
+      self._validate_structure(structured_data)
+      
+      self.logger.info("Content extraction complete")
+      return structured_data
+  
+    def _validate_structure(self, data_dict):
+        required_keys = ['full_content', 'headlines', 'category']
+        for key in required_keys:
+            if key not in data_dict:
+                raise ValueError(f"Missing required key: '{key}'")
+        if not isinstance(data_dict['full_content'], str):
+            raise ValueError("'full_content' must be a string")
+        if not isinstance(data_dict['headlines'], list):
+            raise ValueError("'headlines' must be a list")
+        if not isinstance(data_dict['category'], str):
+            raise ValueError("'category' must be a string")
