@@ -1,0 +1,172 @@
+"""
+Aho-Corasick Multi-Pattern Keyword Matching Algorithm
+Built from scratch - no external libraries used.
+Searches for all keywords from FINANCIAL_KEYWORDS in a single pass.
+"""
+
+from collections import deque
+
+
+class TrieNode:
+
+    #Represents a single node in the Trie structure for Aho-Corasick algorithm.
+  
+    def __init__(self):
+        
+
+        self.children = {}
+        self.is_end_of_word = False
+        
+        # List of keywords that end at this node
+        self.keywords = []
+        
+        # Failure link - where to jump if next character doesn't match
+        self.fail_link = None
+        
+        # Output link - shortcut to find overlapping matches
+        self.output_link = None
+
+
+
+class AhoCorasick:
+    
+    
+    def __init__(self, keyword_dict):
+        self.root = TrieNode()
+        self.root.fail_link = self.root
+        self.keyword_dict = keyword_dict
+        
+    def insert_keyword(self, keyword):
+        current_node = self.root
+        for char in keyword:
+            if char not in current_node.children:
+                current_node.children[char] = TrieNode()
+            current_node = current_node.children[char]
+        
+        current_node.is_end_of_word = True
+        current_node.keywords.append(keyword)
+    
+    def build_trie(self):
+        for keyword in self.keyword_dict.keys():
+            normalized_keyword = keyword.lower()
+            self.insert_keyword(normalized_keyword)
+    
+    def build_failure_links(self):
+        queue = deque()
+        
+        # Step 1: Set failure links for all depth-1 nodes
+        for char, child_node in self.root.children.items():
+            child_node.fail_link = self.root
+            queue.append(child_node)
+        
+        # Step 2: BFS through the rest of the Trie
+        while queue:
+            current_node = queue.popleft()
+            for char, child_node in current_node.children.items():
+                fail_candidate = current_node.fail_link
+                
+                while fail_candidate is not self.root and char not in fail_candidate.children:
+                    fail_candidate = fail_candidate.fail_link
+                
+                if char in fail_candidate.children:
+                    child_node.fail_link = fail_candidate.children[char]
+                else:
+                    child_node.fail_link = self.root
+                
+                queue.append(child_node)
+    
+    def build_output_links(self):
+        queue = deque()
+        
+        for child_node in self.root.children.values():
+            queue.append(child_node)
+        
+        while queue:
+            current_node = queue.popleft()
+            fail_node = current_node.fail_link
+            
+            while fail_node is not self.root and not fail_node.is_end_of_word:
+                fail_node = fail_node.fail_link
+            
+            if fail_node.is_end_of_word:
+                current_node.output_link = fail_node
+            else:
+                current_node.output_link = None
+            
+            for child_node in current_node.children.values():
+                queue.append(child_node)
+
+    def search(self, text):
+        #used for Seaching for keywords within made nodes
+        #Inputs:String to sort through
+        #Output: Dictinary with all key features
+
+        
+        text = text.lower()
+        results = []
+        current_node = self.root
+        
+
+        for position, char in enumerate(text):
+            while current_node is not self.root and char not in current_node.children:
+                current_node = current_node.fail_link
+            
+            # Go next node if paths is der
+            if char in current_node.children:
+                current_node = current_node.children[char]
+            else:
+                current_node = self.root
+            
+            if current_node.is_end_of_word:
+                # Release all keywordfs at end of this node
+                for keyword in current_node.keywords:
+                    match = self._create_match(text, keyword, position)
+                    results.append(match)
+            
+            # Scan for overlapping lips
+            holding_nodes = current_node.output_link
+            while holding_nodes is not None:
+                for keyword in holding_nodes.keywords:
+                    match = self._create_match(text, keyword, position)
+                    results.append(match)
+                holding_nodes = holding_nodes.output_link
+        
+        return results
+
+    def _create_match(self, text, keyword, end_position):
+        #Create a seperate match dictionar
+        #:Input:Text:The full text being seraced
+                #: ketword:he Kewords that is mached
+                #:End-Position: Chracter index of the last char. in the keywrod 
+
+        # CWhere key starts
+        start_position = end_position - len(keyword) + 1
+        
+        # Associate with keyword 
+        category = self.keyword_dict[keyword]
+        context = self._extract_context(text, start_position, len(keyword))
+        
+        return {
+            'keyword': keyword,
+            'category': category,
+            'position': start_position,
+            'end_position': end_position,
+            'context': context
+        }
+
+    def _extract_context(self, text, start_pos, keyword_length, context_size=50):
+
+        #Extract surrounding context for a matched keyword.
+     
+        keyword_end = start_pos + keyword_length
+        context_start = max(0, start_pos - context_size)
+        context_end = min(len(text), keyword_end + context_size)
+        before = text[context_start:start_pos]
+        keyword_text = text[start_pos:keyword_end]
+        after = text[keyword_end:context_end]
+        if context_start > 0:
+            before = "..." + before
+        if context_end < len(text):
+            after = after + "..."
+        
+        return before + "[" + keyword_text + "]" + after
