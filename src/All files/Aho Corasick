@@ -1,6 +1,4 @@
 """
-Aho-Corasick Multi-Pattern Keyword Matching Algorithm
-Built from scratch - no external libraries used.
 Searches for all keywords from FINANCIAL_KEYWORDS in a single pass.
 """
 
@@ -9,7 +7,7 @@ from collections import deque
 
 class TrieNode:
 
-    #Represents a single node in the Trie structure for Aho-Corasick algorithm.
+    #Represents 1 node in the Trie structure for Aho-Corasick algorithm.
   
     def __init__(self):
         
@@ -17,14 +15,13 @@ class TrieNode:
         self.children = {}
         self.is_end_of_word = False
         
-        # List of keywords that end at this node
-        self.keywords = []
         
-        # Failure link - where to jump if next character doesn't match
-        self.fail_link = None
+        self.keywords = []# List of keywords that end at this node
         
-        # Output link - shortcut to find overlapping matches
-        self.output_link = None
+        self.fail_link = None# Failure link 
+        
+        
+        self.output_link = None#Output link for finding overlapping matches
 
 
 
@@ -54,12 +51,12 @@ class AhoCorasick:
     def build_failure_links(self):
         queue = deque()
         
-        # Step 1: Set failure links for all depth-1 nodes
+        # 1:Set failure links for all d1 nodes
         for char, child_node in self.root.children.items():
             child_node.fail_link = self.root
             queue.append(child_node)
         
-        # Step 2: BFS through the rest of the Trie
+        # 2 :BFS through the rest of the Trie
         while queue:
             current_node = queue.popleft()
             for char, child_node in current_node.children.items():
@@ -123,7 +120,7 @@ class AhoCorasick:
                     match = self._create_match(text, keyword, position)
                     results.append(match)
             
-            # Scan for overlapping lips
+            # Scan for overlapping 
             holding_nodes = current_node.output_link
             while holding_nodes is not None:
                 for keyword in holding_nodes.keywords:
