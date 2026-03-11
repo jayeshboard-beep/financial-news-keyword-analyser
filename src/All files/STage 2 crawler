@@ -1,1 +1,121 @@
 
+#Stage 2
+
+import re
+from crawler_system import Scheduler, Downloader, LinkParser
+
+
+# news sites to crawl for articles about the chosen product
+NEWS_URLS = [
+    "https://www.reuters.com/business/",
+    "https://www.cnbc.com/",
+    "https://www.bbc.co.uk/news/business",
+    "https://www.nasdaq.com/news-and-insights",
+    "https://www.investing.com/news/",
+    "https://finance.yahoo.com/",
+]
+
+BASE_DOMAINS = {#need to search for specific stuff
+    "https://www.reuters.com/business/": "https://www.reuters.com",
+    "https://www.cnbc.com/": "https://www.cnbc.com",
+    "https://www.bbc.co.uk/news/business": "https://www.bbc.co.uk",
+    "https://www.nasdaq.com/news-and-insights": "https://www.nasdaq.com",
+    "https://www.investing.com/news/": "https://www.investing.com",
+    "https://finance.yahoo.com/": "https://finance.yahoo.com",
+}
+
+def run_stage2_crawler(product_name):
+    
+    print("\n" + "="*70)
+    print("STAGE 2: ARTICLE DISCOVERY")
+    print("="*70)
+    print(f"\nLooking for articles about: {product_name}")
+    print(f"Checking {len(NEWS_URLS)} news sites\n")
+    scheduler = Scheduler()
+    downloader = Downloader()
+    
+    for url in NEWS_URLS:# add all news sites to the queue
+        scheduler.add_url(url)
+    
+    found_urls = []
+    sites_checked = 0
+    sites_failed = 0
+    
+    while not scheduler.is_empty():
+        current_url = scheduler.get_next_url()
+        sites_checked = sites_checked + 1
+        print(f"[Site {sites_checked}/{len(NEWS_URLS)}] {current_url}")
+        html = downloader.fetch(current_url)
+        if html is None:
+            print(f"  Failed to download, skipping")
+            sites_failed = sites_failed + 1
+            continue
+        print(f"  Downloaded {len(html)} chars")
+        
+        base_domain = BASE_DOMAINS.get(current_url, "")#find links
+        article_links = _find_product_links(html, product_name, base_domain)
+        
+        if len(article_links) == 0:
+            print(f"  No articles about {product_name} found here")
+        else:
+            print(f"  Found {len(article_links)} relevant links")
+            for link in article_links:
+                if link not in found_urls:#no duplicates
+                    found_urls.append(link)
+    
+    if sites_failed == len(NEWS_URLS):# check if we actually got anything
+        print("\nAll sites failed. Check your internet connection")
+        return []
+    cleaned_urls = _filter_article_urls(found_urls)
+    print(f"\n" + "="*70)
+    print("STAGE 2 COMPLETE")
+    print("="*70)
+    print(f"Sites checked: {sites_checked}")
+    if sites_failed > 0:
+        print(f"Sites failed: {sites_failed}")
+    print(f"Article URLs found: {len(cleaned_urls)}")
+    if cleaned_urls:
+        print(f"\n--- Article URLs ---")
+        for i in range(len(cleaned_urls)):
+            print(f"  {i+1}. {cleaned_urls[i]}")
+    print("="*70)
+    return cleaned_urls
+
+
+def _find_product_links(html, product_name, base_domain):#Search through html using regex ro find anchor tags
+    results = []
+    product_lower = product_name.lower()
+    
+
+    pattern = r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>'# regex to grab anchor tags with their href and inner text
+    matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+    
+    for href, link_text in matches:
+        # strip out any html tags inside the link text 
+        clean_text = re.sub(r'<[^>]+>', '', link_text)
+        clean_text = clean_text.strip()
+        if product_lower in clean_text.lower():# sort out the url - might be relative
+            full_url = _resolve_url(href, base_domain)
+            if full_url is not None:
+                results.append(full_url)
+    return results
+
+
+def _resolve_url(href, base_domain):#turn relative url into fulol usuable one
+ 
+    if not href:# skip empty links
+        return None
+    if href.startswith('#') or href.startswith('javascript:'):
+        return None
+    if href.startswith('mailto:') or href.startswith('tel:'):
+        return None
+    if href.startswith('http://') or href.startswith('https://'):
+        return href# if its already a full url just return it
+    
+    if base_domain:#fix and ad the rst of the url
+        if href.startswith('/'):
+            full = base_domain + href
+        else:
+            full = base_domain + '/' + href
+        return full
+    return None
