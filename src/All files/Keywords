@@ -304,3 +304,49 @@ CATEGORY_METADATA = {
         'note': 'Impact determined by Event-Type Trend database'
     },
 }
+
+
+#Known companys which is used in inital scrape when trying to find a potnetial product to further investigate.
+
+KNOWN_COMPANIES = [
+    # big tech companies
+    'apple', 'microsoft', 'google', 'alphabet', 'amazon', 
+    'meta', 'nvidia', 'tesla', 'netflix', 'intel',
+    'amd', 'samsung', 'ibm', 'oracle', 'salesforce',
+    'adobe', 'uber', 'airbnb', 'spotify', 'qualcomm',
+    'cisco', 'dell', 'hp', 'sony', 'tiktok',
+    'openai', 'palantir', 'snowflake', 'shopify',
+    
+    # banks and finance companies
+    'jpmorgan', 'jp morgan', 'goldman sachs', 'morgan stanley',
+    'bank of america', 'wells fargo', 'citigroup', 'hsbc',
+    'barclays', 'deutsche bank', 'ubs', 'credit suisse',
+    'visa', 'mastercard', 'paypal', 'stripe', 'revolut',
+    
+    # retail 
+    'walmart', 'target', 'costco', 'nike', 'adidas',
+    'starbucks', 'mcdonalds', 'coca cola', 'coca-cola',
+    'pepsi', 'pepsico', 'nestle', 'unilever',
+    'lvmh', 'zara', 'primark',
+    
+    # energy and cars
+    'exxon', 'exxonmobil', 'shell', 'bp', 'chevron',
+    'total energies', 'ford', 'gm', 'general motors',
+    'toyota', 'volkswagen', 'bmw', 'mercedes', 'rivian',
+    'lucid', 'nio',
+    
+    # health and pharma
+    'pfizer', 'moderna', 'johnson & johnson', 'j&j',
+    'astrazeneca', 'novartis', 'roche', 'eli lilly',
+    'abbvie', 'merck',
+    
+    # crypto and commodities
+    'bitcoin', 'ethereum', 'crypto', 'gold', 'oil',
+    'silver', 'natural gas', 'copper', 'lithium',
+    
+    # aerospace defence and travel
+    'boeing', 'airbus', 'lockheed martin', 'raytheon',
+    'ryanair', 'easyjet', 'british airways',
+    'disney', 'warner bros',
+]
+
