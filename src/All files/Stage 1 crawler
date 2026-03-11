@@ -1,1 +1,96 @@
 
+from crawler_system import Scheduler, Downloader, Spider
+from keywords import KNOWN_COMPANIES
+
+
+
+HOMEPAGE_URLS = [
+    "https://www.marketwatch.com/",
+    "https://finance.yahoo.com/",#Added yahoo incase ^ gets blocked
+]
+
+
+def run_stage1_crawler():#Scrapes for comapnys. Checks aganst dic
+
+    #testing
+    print("\n" + "="*70)
+    print("STAGE 1: PRODUCT DISCOVERY CRAWLER")
+    print("="*70)
+    
+    print(f"\n Scraping {len(HOMEPAGE_URLS)} news sites")
+    print(f" Checking against {len(KNOWN_COMPANIES)} known companies")
+    print()
+    
+   #getting components
+    scheduler = Scheduler()
+    downloader = Downloader()
+    spider = Spider(KNOWN_COMPANIES)
+    for url in HOMEPAGE_URLS:
+        scheduler.add_url(url)  # put  homepage urls into scheduler
+    all_matches = []
+    crawl_count = 0
+    failed_sites = 0
+    
+    while not scheduler.is_empty():#scheduler loop
+        current_url = scheduler.get_next_url()
+        crawl_count = crawl_count + 1
+        
+        print(f"[Page {crawl_count}/{len(HOMEPAGE_URLS)}] Crawling: {current_url}")
+        page_html = downloader.fetch(current_url)#get html
+        
+        if page_html is None:#if no html error check
+            print(f"   Couldnt download - site might be blocking us")
+            failed_sites = failed_sites + 1
+            continue
+        print(f"  Got {len(page_html)} characters")
+        
+        matches = spider.parse(page_html, current_url)#spider checking for headers
+        if len(matches) > 0:
+            print(f" Found {len(matches)} headlines mentioning companies")
+        else:
+            print(f" No company mentions found on this page")
+        for match in matches:
+            all_matches.append(match)
+
+    # fail chechk
+    if failed_sites == len(HOMEPAGE_URLS):
+        print("\n All sites failed to respond. Check internet connection")
+        return []   
+    print(f"\n" + "="*70)
+    print("STAGE 1 COMPLETE")
+    print("="*70)
+    print(f" Pages crawled: {crawl_count}")
+    if failed_sites > 0:
+        print(f" Failed: {failed_sites}")
+    print(f"Headlines with company mentions: {len(all_matches)}")
+    if all_matches:#output to user
+        _print_found_companies(all_matches)
+    else:
+        print("\nNo companies found in any headlines")
+    
+    print("="*70)
+    return all_matches
+
+
+def _print_found_companies(results):#send results
+    print(f"\n--- Companies Found ---")
+    
+    # get unique company names first
+    company_names = []
+    for result in results:
+        for kw in result['matched_keywords']:
+            # only add it if we havent seen it already
+            already_there = False
+            for existing in company_names:
+                if existing == kw:
+                    already_there = True
+            if not already_there:
+                company_names.append(kw)
+    
+    for i in range(len(company_names)):#frequency check
+        name = company_names[i]
+        mention_count = 0
+        for result in results:
+            if name in result['matched_keywords']:
+                mention_count = mention_count + 1
+        print(f"  {i + 1}. {name} ({mention_count} mentions)")
