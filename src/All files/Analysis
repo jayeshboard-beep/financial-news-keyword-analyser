@@ -1,28 +1,15 @@
-"""
-Analysis Algorithms
-Contains all analyser classes for sentiment, risk, frequency,
-contradictions, volatility, event trends, and ROI calculation.
-"""
-
 import os
 import csv
 import logging
 from datetime import datetime
 
+class BaseAnalyser:#Base analysier
 
-# ============================================================================
-# BASE ANALYSER
-# ============================================================================
-
-class BaseAnalyzer:
-    """
-    Base class for all analysis algorithms.
-    """
     
     def __init__(self, article_category=None):
         self.article_category = article_category
         
-        # Category multipliers for risk weighting
+        # Category multipliers for risk 
         self.category_multipliers = {
             'Legal': 1.5,
             'Business': 1.2,
@@ -32,89 +19,56 @@ class BaseAnalyzer:
         }
     
     def get_category_multiplier(self):
-
-       # Get risk multiplier based on article category.
-
+       # Get risk multiplier 
         return self.category_multipliers.get(self.article_category, 1.0)
     
-    def analyze(self, matches):
+    def analyse(self, matches):
 
-        #Abstract method to be  implemented by subclasses.
+        #Abstract for eahc obejct to sort out themselve
 
-        raise NotImplementedError("Subclasses must implement analyze()")
+        raise NotImplementedError("Subclasses must use analysis()")
 
-
-# ============================================================================
-# SENTIMENT SCORER
-# ============================================================================
-
-class SentimentScorer(BaseAnalyzer):
+class SentimentScorer(BaseAnalyser):#Calculates sentiment score from keyword matches.
+    """    
+    1. Error check
+    2. Go through mathces + add weighted score
+    3. Incldue modifies
+    4. Classify overall sentiment 
     """
-    Calculates sentiment score from keyword matches.
-    
-    Steps:
-    1. Check for empty input (Error checking)
-    2. Loop through matches and calculate weighted scores
-    3. Check for modifiers near each keyword
-    4. Classify overall sentiment based on score
-    """
-    
     def __init__(self, article_category=None, category_metadata=None):
         super().__init__(article_category)
-        
-        # Extract sentiment weights from category metadata
-        self.sentiment_weights = {}
+        self.sentiment_weights = {}#Get cat sentiment multi
         for cat_name, cat_data in category_metadata.items():
             if 'sentiment_score' in cat_data:
                 self.sentiment_weights[cat_name] = cat_data['sentiment_score']
-        
-        # Extract modifier effects from category metadata
-        self.modifier_effects = {}
+        self.modifier_effects = {}#get multis
         for cat_name, cat_data in category_metadata.items():
             if 'multiplier' in cat_data:
                 self.modifier_effects[cat_name] = cat_data['multiplier']
-        
     
-    def analyze(self, matches):
+    def analyse(self, matches):#use matched wrod from aho to get sentiment 
         """
-        Analyze sentiment from keyword matches GIVEN by aho-corasick algorithm 
-        
-    Outputs:
-            dict: {
-                'overall_score': float,
-                'sentiment': str ('POSITIVE', 'NEGATIVE', 'NEUTRAL'),
-                'positive_score': float,
-                'negative_score': float,
-                'breakdown': list of keyword details
-            }
+Return dict with following:
+    Overall score
+    sentiment
+    pos score
+    neg score
+    keywords that give that sentiment
         """
-        
-        # Error handle
-        if not matches:
-            return self._generate_neutral_output()
-        
- 
+
+     
         positive_score = 0.0
         negative_score = 0.0
         keyword_details = []
         
-        # Process each match
         for match in matches:
             category = match['category']
-            
-
             if category not in self.sentiment_weights:
                 continue
             base_weight = self.sentiment_weights[category]
-            
-            # Check for nearby modifier
-            modifier = self._check_for_modifier(match, matches)
-            
-            # Calculate final weight with modifier applied
+            modifier = self._check_for_modifier(match, matches)# Multi check
             final_weight = base_weight * modifier
-            
-            # Add to total
-            if final_weight > 0:
+            if final_weight > 0:#Total work out
                 positive_score += final_weight
             else:
                 negative_score += abs(final_weight)
@@ -125,19 +79,18 @@ class SentimentScorer(BaseAnalyzer):
                 'final_weight': final_weight,
                 'context': match['context']
             })
-            
-           
+        
         overall = positive_score - negative_score
         
-        # Classify sentiment based on thresholds
-        if overall > 5:
+        if overall > 5:#gedt user friendly sentiment based on score
             sentiment = 'POSITIVE'
         elif overall < -5:
             sentiment = 'NEGATIVE'
         else:
             sentiment = 'NEUTRAL'
+
+
         
-        # Output the dict
         return {
             'overall_score': round(overall, 2),
             'sentiment': sentiment,
@@ -146,36 +99,24 @@ class SentimentScorer(BaseAnalyzer):
             'breakdown': keyword_details
         }
     
-    
-    def _check_for_modifier(self, current_match, all_matches):
-        """
-        Check if there's a effect within 20 characters before this keyword.
-        """
+    def _check_for_modifier(self, current_match, all_matches):#use the 20 character away rule
+  
         current_position = current_match['position']
-        
-        # Check each match
-        for match in all_matches:
+        for match in all_matches:# Check each match
             category = match['category']
-            
             if category not in self.modifier_effects:
                 continue
             modifier_position = match['position']
-            
-            # Modifier must be before the keyword
-            if modifier_position >= current_position:
+            if modifier_position >= current_position:# multi before word
                 continue
             distance = current_position - modifier_position
             if distance <= 20:#20 char check
                 return self.modifier_effects[category]
-        
         # No found
         return 1.0
     
     
-    def _generate_neutral_output(self):
-
-        #Return neutral sentiment when no matches found.
-
+    def _generate_neutral_output(self):#error protection
         return {
             'overall_score': 0.0,
             'sentiment': 'NEUTRAL',
@@ -184,21 +125,14 @@ class SentimentScorer(BaseAnalyzer):
             'breakdown': []
         }
 
-
-# ============================================================================
-# RISK TAGGER
-# ============================================================================
-
-class RiskTagger(BaseAnalyzer):
+class RiskTagger(BaseAnalyser):#Find specific risk events from keywords
     """
-    Identifies specific risk events from keyword matches. From that then tag them so that data can be forwarded to conclution
-    
-    Algorithm:
-    1. Check for empty input (error check)
-    2. Identify and group matches risk category
-    3. Calculate severity based on frequency
-    4. Calculate overall risk score
-    5. Apply category multiplier
+    Algo logic
+    1. Error cehck
+    2. Identify and group matches risk cat
+    3. calc severity based on frequency
+    4. calc  risk score
+    5. Apply category multis
     """
     
     def __init__(self, article_category=None, category_metadata=None):
@@ -226,9 +160,9 @@ class RiskTagger(BaseAnalyzer):
         
     
     
-    def analyze(self, matches):
+    def analyse(self, matches):
         """
-        Analyze risk from keyword matches.
+        analyse risk from keyword matches.
         
         Will output dict like below
             dict: {
@@ -550,15 +484,15 @@ class EventTrendsDatabase:
 # HEADLINE FREQUENCY TRACKER
 # ============================================================================
 
-class HeadlineFrequencyTracker(BaseAnalyzer):
+class HeadlineFrequencyTracker(BaseAnalyser):
     """
     Tracks how often a product is mentioned across article headlines.
     High frequency = market attention = potential volatility.
     """
     
-    def analyze(self, headlines, product_name):
+    def analyse(self, headlines, product_name):
         """
-        Analyze headline frequency for a product.
+        analyse headline frequency for a product.
 
         Output:Dictionary with frequency analysis results
         """
@@ -607,7 +541,7 @@ class HeadlineFrequencyTracker(BaseAnalyzer):
 # CONTRADICTION DETECTOR
 # ============================================================================
 
-class ContradictionDetector(BaseAnalyzer):
+class ContradictionDetector(BaseAnalyser):
     """
     Detects contradictory sentiment signals across headlines.
     Contradictions indicate market uncertainty and increased risk.
@@ -623,7 +557,7 @@ class ContradictionDetector(BaseAnalyzer):
         self.aho_corasick = aho_corasick
         self.category_metadata = category_metadata 
     
-    def analyze(self, headlines):
+    def analyse(self, headlines):
 
         if not headlines or len(headlines) < 2:#Error handling
             return None
@@ -631,7 +565,7 @@ class ContradictionDetector(BaseAnalyzer):
         # Step 1
         headline_sentiments = []
         for headline in headlines:
-            sentiment = self._analyze_headline_sentiment(headline)
+            sentiment = self._analyse_headline_sentiment(headline)
             headline_sentiments.append({
                 'text': headline,
                 'sentiment': sentiment
@@ -670,7 +604,7 @@ class ContradictionDetector(BaseAnalyzer):
             'conflicting_pairs': conflicting_pairs
         }
     
-    def _analyze_headline_sentiment(self, headline):
+    def _analyse_headline_sentiment(self, headline):
         #Determine sentiment of a single headline using Aho-Corasick.
         # BUG FIX 2: Uses match category directly instead of broken _get_keyword_weight
 
@@ -750,9 +684,9 @@ class ContradictionDetector(BaseAnalyzer):
 # TREND VOLATILITY ANALYSER
 # ============================================================================
 
-class TrendVolatilityAnalyzer(BaseAnalyzer):
+class TrendVolatilityanalyser(BaseAnalyser):
     """
-    Analyzes market volatility by detecting sentiment fluctuations and emotional language.
+    analyses market volatility by detecting sentiment fluctuations and emotional language.
     
    Parts:
     1. Calculate sentiment balance volatility (0-35)
@@ -779,10 +713,10 @@ class TrendVolatilityAnalyzer(BaseAnalyzer):
         }
     
     
-    def analyze(self, sentiment_result, frequency_result, contradiction_result, keyword_matches):
+    def analyse(self, sentiment_result, frequency_result, contradiction_result, keyword_matches):
         """
        Step 5
-         Analyze market volatility from combined analyzer outputs.
+         analyse market volatility from combined analyser outputs.
 
         Outputs:
             dict: {
@@ -1349,3 +1283,5 @@ class ROICalculator:
                      f"RSK: {round(risk, 1)}")
         
         return technical
+
+
