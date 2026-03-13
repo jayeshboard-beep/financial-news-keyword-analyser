@@ -1,12 +1,3 @@
-"""
-Stage 3: Article Analysis Controller
-Takes article URLs from stage 2, runs all the analysis 
-algorithms on them and produces investment recommendation.
- 
-Class is used internally bc stage 3 has loads of state to manage
-but wrapped in a function so main.py calls it same way as stage 1/2.
-"""
- 
 from datetime import datetime
 from crawler_system import Downloader, DOMParser
 from keywords import FINANCIAL_KEYWORDS, CATEGORY_METADATA
@@ -18,13 +9,7 @@ from analysers import (
 )
  
  
-class Stage3Controller:
-    """
-    Controls the whole analysis pipeline.
-    Processes articles one at a time then does batch analysis
-    on the accumulated data before generating final report.
-    """
-    
+class Stage3Controller:    
     def __init__(self, product_name, sector):
         self.product_name = product_name
         self.sector = sector
@@ -33,26 +18,26 @@ class Stage3Controller:
         self.downloader = Downloader()
         self.dom_parser = DOMParser()
         
-        # build aho corasick once and reuse for every article
+        # build aho corasick once and reuse 
         self.aho_corasick = AhoCorasick(FINANCIAL_KEYWORDS)
         self.aho_corasick.build_trie()
         self.aho_corasick.build_failure_links()
         self.aho_corasick.build_output_links()
         
-        # batch analysers - run AFTER all articles processed
+        # run AFTER all articles processed
         self.freq_tracker = HeadlineFrequencyTracker()
         self.contradiction_detector = ContradictionDetector(
             aho_corasick=self.aho_corasick,
-            category_metadata=CATEGORY_METADATA
-        )
+            category_metadata=CATEGORY_METADATA)
+
+        
         self.volatility_analyser = TrendVolatilityAnalyzer(
             article_category=None,
-            category_metadata=CATEGORY_METADATA
-        )
+            category_metadata=CATEGORY_METADATA)
         self.event_db = EventTrendsDatabase(csv_filepath="event_trends.csv")
         self.roi_calc = ROICalculator(category_metadata=CATEGORY_METADATA)
         
-        # accumulators - collect data as we go through articles
+        #list we need to hold
         self.all_headlines = []
         self.all_matches = []
         self.article_results = []
@@ -61,10 +46,10 @@ class Stage3Controller:
     
     
     def analyse_articles(self, article_urls):
-        """
-        Main method. Goes through each article, analyses it,
-        then runs batch analysis and generates recommendation.
-        """
+        #Steps:
+            #Step 1: go through each article one at atime
+            #Step 2:Analyse everything combinged
+            #Step3: Final recommentaion
         print("\n" + "="*70)
         print("STAGE 3: ARTICLE ANALYSIS")
         print("="*70)
@@ -77,40 +62,35 @@ class Stage3Controller:
         done_count = 0
         fail_count = 0
         
-        # ---- PHASE A: go through each article one by one ----
+        #STEP 1:go through each article 1 at atiem
         for i in range(len(article_urls)):
             url = article_urls[i]
             num = i + 1
             print(f"[Article {num}/{total}] {url}")
-            
             result = self._do_single_article(url)
             
             if result is None:
                 fail_count = fail_count + 1
                 continue
-            
-            # store results and add to accumulators
+            # store results in lisrts
             self.article_results.append(result)
             self.all_headlines.extend(result['headlines'])
             self.all_matches.extend(result['matches'])
             self.sentiment_list.append(result['sentiment'])
             self.risk_list.append(result['risk'])
             done_count = done_count + 1
-        
-        # bail out if nothing worked
-        if done_count == 0:
+        if done_count == 0:# bail out if nothing worked
             print("\nAll articles failed - not enough data to analyse")
             return self._make_empty_report(total)
-        
         print(f"\nArticles done: {done_count}/{total}")
         if fail_count > 0:
             print(f"Failed: {fail_count}")
         
-        # ---- PHASE B: batch analysis on everything combined ----
+        # Step 2
         print("\nRunning batch analysis...")
-        batch = self._do_batch_analysis()
+        batch = self.get_data_foranalyser()
         
-        # ---- PHASE C: final recommendation ----
+        # Step 3
         print("Calculating recommendation...")
         report = self._build_report(done_count, fail_count, batch)
         
@@ -120,44 +100,33 @@ class Stage3Controller:
     
     def _do_single_article(self, url):
         """
-        Downloads parses and analyses one article.
-        Returns dict with results or None if it failed.
-        
-        Makes new SentimentScorer and RiskTagger each time bc
-        the article category changes and that affects the multiplier.
+        Does download,parse and analysis all in one
+        *** make new sentiment score and risk tagger cause cant reuse across articles
         """
-        # download it
+    
+
         html = self.downloader.fetch(url)
         if html is None:
             print(f"  Failed to download, skipping")
             return None
         print(f"  Downloaded ({len(html)} chars)")
-        
-        # parse into structured data
-        try:
+        try:# parse into structured data
             parsed = self.dom_parser.extract(html)
         except Exception as e:
             print(f"  Parse failed: {e}, skipping")
             return None
-        
         content = parsed['full_content']
         headlines = parsed['headlines']
         category = parsed['category']
-        
-        # run aho corasick to find keywords
-        matches = self.aho_corasick.search(content)
+        matches = self.aho_corasick.search(content)# run aho corasick to find keywords
         print(f"  {len(matches)} keyword matches found")
-        
-        # sentiment - new instance bc category differs per article
-        scorer = SentimentScorer(
+        scorer = SentimentScorer(# sentiment - new instance bc category Changes per article
             article_category=category,
             category_metadata=CATEGORY_METADATA
         )
         sent_result = scorer.analyze(matches)
         print(f"  Sentiment: {sent_result['sentiment']} ({sent_result['overall_score']})")
-        
-        # risk - same reason for new instance
-        tagger = RiskTagger(
+        tagger = RiskTagger(# risk - same reason for new instance
             article_category=category,
             category_metadata=CATEGORY_METADATA
         )
@@ -176,8 +145,24 @@ class Stage3Controller:
             'risk': risk_result
         }
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
-    def _do_batch_analysis(self):
+    def get_data_foranalyser(self):
         """
         Runs the analysers that need data from ALL articles.
         Frequency tracker, contradiction detector etc need the 
