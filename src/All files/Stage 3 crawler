@@ -1,1 +1,450 @@
-
+"""
+Stage 3: Article Analysis Controller
+Takes article URLs from stage 2, runs all the analysis 
+algorithms on them and produces investment recommendation.
+ 
+Class is used internally bc stage 3 has loads of state to manage
+but wrapped in a function so main.py calls it same way as stage 1/2.
+"""
+ 
+from datetime import datetime
+from crawler_system import Downloader, DOMParser
+from keywords import FINANCIAL_KEYWORDS, CATEGORY_METADATA
+from aho_corasick import AhoCorasick
+from analysers import (
+    SentimentScorer, RiskTagger, HeadlineFrequencyTracker,
+    ContradictionDetector, TrendVolatilityAnalyzer,
+    EventTrendsDatabase, ROICalculator
+)
+ 
+ 
+class Stage3Controller:
+    """
+    Controls the whole analysis pipeline.
+    Processes articles one at a time then does batch analysis
+    on the accumulated data before generating final report.
+    """
+    
+    def __init__(self, product_name, sector):
+        self.product_name = product_name
+        self.sector = sector
+        
+        # stuff we use for every article
+        self.downloader = Downloader()
+        self.dom_parser = DOMParser()
+        
+        # build aho corasick once and reuse for every article
+        self.aho_corasick = AhoCorasick(FINANCIAL_KEYWORDS)
+        self.aho_corasick.build_trie()
+        self.aho_corasick.build_failure_links()
+        self.aho_corasick.build_output_links()
+        
+        # batch analysers - run AFTER all articles processed
+        self.freq_tracker = HeadlineFrequencyTracker()
+        self.contradiction_detector = ContradictionDetector(
+            aho_corasick=self.aho_corasick,
+            category_metadata=CATEGORY_METADATA
+        )
+        self.volatility_analyser = TrendVolatilityAnalyzer(
+            article_category=None,
+            category_metadata=CATEGORY_METADATA
+        )
+        self.event_db = EventTrendsDatabase(csv_filepath="event_trends.csv")
+        self.roi_calc = ROICalculator(category_metadata=CATEGORY_METADATA)
+        
+        # accumulators - collect data as we go through articles
+        self.all_headlines = []
+        self.all_matches = []
+        self.article_results = []
+        self.sentiment_list = []
+        self.risk_list = []
+    
+    
+    def analyse_articles(self, article_urls):
+        """
+        Main method. Goes through each article, analyses it,
+        then runs batch analysis and generates recommendation.
+        """
+        print("\n" + "="*70)
+        print("STAGE 3: ARTICLE ANALYSIS")
+        print("="*70)
+        
+        print(f"\nProduct: {self.product_name}")
+        print(f"Sector: {self.sector}")
+        print(f"Articles to analyse: {len(article_urls)}\n")
+        
+        total = len(article_urls)
+        done_count = 0
+        fail_count = 0
+        
+        # ---- PHASE A: go through each article one by one ----
+        for i in range(len(article_urls)):
+            url = article_urls[i]
+            num = i + 1
+            print(f"[Article {num}/{total}] {url}")
+            
+            result = self._do_single_article(url)
+            
+            if result is None:
+                fail_count = fail_count + 1
+                continue
+            
+            # store results and add to accumulators
+            self.article_results.append(result)
+            self.all_headlines.extend(result['headlines'])
+            self.all_matches.extend(result['matches'])
+            self.sentiment_list.append(result['sentiment'])
+            self.risk_list.append(result['risk'])
+            done_count = done_count + 1
+        
+        # bail out if nothing worked
+        if done_count == 0:
+            print("\nAll articles failed - not enough data to analyse")
+            return self._make_empty_report(total)
+        
+        print(f"\nArticles done: {done_count}/{total}")
+        if fail_count > 0:
+            print(f"Failed: {fail_count}")
+        
+        # ---- PHASE B: batch analysis on everything combined ----
+        print("\nRunning batch analysis...")
+        batch = self._do_batch_analysis()
+        
+        # ---- PHASE C: final recommendation ----
+        print("Calculating recommendation...")
+        report = self._build_report(done_count, fail_count, batch)
+        
+        print("Analysis complete\n")
+        return report
+    
+    
+    def _do_single_article(self, url):
+        """
+        Downloads parses and analyses one article.
+        Returns dict with results or None if it failed.
+        
+        Makes new SentimentScorer and RiskTagger each time bc
+        the article category changes and that affects the multiplier.
+        """
+        # download it
+        html = self.downloader.fetch(url)
+        if html is None:
+            print(f"  Failed to download, skipping")
+            return None
+        print(f"  Downloaded ({len(html)} chars)")
+        
+        # parse into structured data
+        try:
+            parsed = self.dom_parser.extract(html)
+        except Exception as e:
+            print(f"  Parse failed: {e}, skipping")
+            return None
+        
+        content = parsed['full_content']
+        headlines = parsed['headlines']
+        category = parsed['category']
+        
+        # run aho corasick to find keywords
+        matches = self.aho_corasick.search(content)
+        print(f"  {len(matches)} keyword matches found")
+        
+        # sentiment - new instance bc category differs per article
+        scorer = SentimentScorer(
+            article_category=category,
+            category_metadata=CATEGORY_METADATA
+        )
+        sent_result = scorer.analyze(matches)
+        print(f"  Sentiment: {sent_result['sentiment']} ({sent_result['overall_score']})")
+        
+        # risk - same reason for new instance
+        tagger = RiskTagger(
+            article_category=category,
+            category_metadata=CATEGORY_METADATA
+        )
+        risk_result = tagger.analyze(matches)
+        if risk_result['primary_risk']:
+            print(f"  Risk: {risk_result['overall_risk_score']} ({risk_result['primary_risk']})")
+        else:
+            print(f"  Risk: {risk_result['overall_risk_score']}")
+        
+        return {
+            'url': url,
+            'category': category,
+            'headlines': headlines,
+            'matches': matches,
+            'sentiment': sent_result,
+            'risk': risk_result
+        }
+    
+    
+    def _do_batch_analysis(self):
+        """
+        Runs the analysers that need data from ALL articles.
+        Frequency tracker, contradiction detector etc need the 
+        full picture not just one article at a time.
+        """
+        # how often does product appear in headlines
+        freq_result = self.freq_tracker.analyze(
+            self.all_headlines, self.product_name
+        )
+        if freq_result:
+            print(f"  Frequency: {freq_result['attention_level']} ({freq_result['percentage']}%)")
+        
+        # do any headlines contradict each other
+        contra_result = self.contradiction_detector.analyze(self.all_headlines)
+        if contra_result:
+            print(f"  Contradictions: {contra_result['contradiction_detected']}")
+        
+        # average out the sentiment across all articles
+        avg_sentiment = self._avg_sentiment()
+        
+        # combine risk from all articles
+        combined_risk = self._combine_risk()
+        
+        # volatility uses outputs from the other analysers
+        vol_result = self.volatility_analyser.analyze(
+            avg_sentiment, freq_result, contra_result, self.all_matches
+        )
+        if vol_result:
+            print(f"  Volatility: {vol_result['volatility_score']} (confidence: {vol_result['confidence_level']})")
+        
+        # check historical trends
+        primary = combined_risk.get('primary_risk', 'general')
+        if primary is None:
+            primary = 'general'
+        trend_pred = self.event_db.predict_trend(self.sector, primary)
+        print(f"  Trend prediction: {trend_pred['prediction']}")
+        
+        return {
+            'sentiment': avg_sentiment,
+            'risk': combined_risk,
+            'frequency': freq_result,
+            'contradictions': contra_result,
+            'volatility': vol_result,
+            'trend_prediction': trend_pred
+        }
+    
+    
+    def _avg_sentiment(self):
+        """Average the sentiment scores across all articles."""
+        if not self.sentiment_list:
+            return None
+        
+        total_pos = 0.0
+        total_neg = 0.0
+        
+        for s in self.sentiment_list:
+            total_pos = total_pos + s['positive_score']
+            total_neg = total_neg + s['negative_score']
+        
+        num_articles = len(self.sentiment_list)
+        avg_pos = total_pos / num_articles
+        avg_neg = total_neg / num_articles
+        avg_overall = avg_pos - avg_neg
+        
+        if avg_overall > 5:
+            label = 'POSITIVE'
+        elif avg_overall < -5:
+            label = 'NEGATIVE'
+        else:
+            label = 'NEUTRAL'
+        
+        return {
+            'overall_score': round(avg_overall, 2),
+            'sentiment': label,
+            'positive_score': round(avg_pos, 2),
+            'negative_score': round(avg_neg, 2),
+            'articles_counted': num_articles
+        }
+    
+    
+    def _combine_risk(self):
+        """
+        Merge risk results from every article into one summary.
+        Adds up the counts for each risk category and recalculates severity.
+        """
+        if not self.risk_list:
+            return {
+                'detected_risks': {},
+                'overall_risk_score': 0.0,
+                'primary_risk': None,
+                'risk_count': 0
+            }
+        
+        merged = {}
+        total_score = 0.0
+        total_count = 0
+        
+        for r in self.risk_list:
+            total_score = total_score + r['overall_risk_score']
+            total_count = total_count + r['risk_count']
+            
+            for risk_name, risk_data in r['detected_risks'].items():
+                if risk_name not in merged:
+                    merged[risk_name] = {
+                        'count': 0,
+                        'keywords': [],
+                        'severity': 'LOW'
+                    }
+                merged[risk_name]['count'] += risk_data['count']
+                merged[risk_name]['keywords'].extend(risk_data['keywords'])
+        
+        # recalculate severity with combined counts
+        for risk_name in merged:
+            c = merged[risk_name]['count']
+            if c >= 5:
+                merged[risk_name]['severity'] = 'HIGH'
+            elif c >= 3:
+                merged[risk_name]['severity'] = 'MODERATE'
+            else:
+                merged[risk_name]['severity'] = 'LOW'
+        
+        avg_score = total_score / len(self.risk_list)
+        
+        # find which risk has the most keyword hits
+        top_risk = None
+        top_count = 0
+        for rname in merged:
+            if merged[rname]['count'] > top_count:
+                top_risk = rname
+                top_count = merged[rname]['count']
+        
+        return {
+            'detected_risks': merged,
+            'overall_risk_score': round(avg_score, 2),
+            'primary_risk': top_risk,
+            'risk_count': total_count
+        }
+    
+    
+    def _build_report(self, done_count, fail_count, batch):
+        """
+        Puts everything together into the final report dict.
+        Also saves to the event trends database.
+        """
+        # build what ROICalculator expects
+        analyser_results = {
+            'sentiment': batch['sentiment'],
+            'risk': batch['risk'],
+            'volatility': batch['volatility'],
+            'frequency': batch['frequency'],
+            'contradictions': batch['contradictions'],
+            'trend_prediction': batch['trend_prediction']
+        }
+        
+        # get the final recommendation
+        roi_result = self.roi_calc.calculate(analyser_results)
+        
+        # work out trend direction for database
+        sent_score = 0.0
+        if batch['sentiment'] is not None:
+            sent_score = batch['sentiment']['overall_score']
+        
+        vol_score = 0.0
+        if batch['volatility'] is not None:
+            vol_score = batch['volatility']['volatility_score']
+        
+        trend_dir = self.event_db.calculate_trend_direction(sent_score, vol_score)
+        
+        # get values for saving with safe defaults
+        risk_score = 0.0
+        if batch['risk'] is not None:
+            risk_score = batch['risk']['overall_risk_score']
+        
+        conf_level = 'LOW'
+        if batch['volatility'] is not None:
+            conf_level = batch['volatility']['confidence_level']
+        
+        primary_risk = 'general'
+        if batch['risk'] is not None:
+            if batch['risk']['primary_risk'] is not None:
+                primary_risk = batch['risk']['primary_risk']
+        
+        # save to event database so future runs can use this
+        event_record = {
+            'timestamp': datetime.now().isoformat(),
+            'product': self.product_name,
+            'sector': self.sector,
+            'event_type': primary_risk,
+            'sentiment_score': str(sent_score),
+            'risk_score': str(risk_score),
+            'volatility_score': str(vol_score),
+            'confidence_level': conf_level,
+            'trend_direction': trend_dir
+        }
+        self.event_db.save_event(event_record)
+        
+        # per article breakdown for the report
+        breakdown = []
+        for res in self.article_results:
+            breakdown.append({
+                'url': res['url'],
+                'category': res['category'],
+                'sentiment': res['sentiment'],
+                'risks': res['risk']
+            })
+        
+        # pull out summary values with fallbacks
+        overall_sent = 'NEUTRAL'
+        if batch['sentiment'] is not None:
+            overall_sent = batch['sentiment']['sentiment']
+        
+        vol_level = 'UNKNOWN'
+        if batch['volatility'] is not None:
+            vol_level = batch['volatility']['confidence_level']
+        
+        attention = 'LOW'
+        if batch['frequency'] is not None:
+            attention = batch['frequency']['attention_level']
+        
+        report = {
+            'product': self.product_name,
+            'sector': self.sector,
+            'timestamp': datetime.now().isoformat(),
+            'articles_analysed': done_count,
+            'articles_failed': fail_count,
+            'roi_recommendation': roi_result,
+            'analysis_summary': {
+                'overall_sentiment': overall_sent,
+                'primary_risk': primary_risk,
+                'volatility_level': vol_level,
+                'trend_direction': trend_dir,
+                'attention_level': attention
+            },
+            'article_breakdown': breakdown
+        }
+        
+        return report
+    
+    
+    def _make_empty_report(self, total_urls):
+        """When every article fails return this so nothing crashes."""
+        return {
+            'product': self.product_name,
+            'sector': self.sector,
+            'timestamp': datetime.now().isoformat(),
+            'articles_analysed': 0,
+            'articles_failed': total_urls,
+            'roi_recommendation': {
+                'indicator': 'INSUFFICIENT_DATA',
+                'user_recommendation': 'Couldnt analyse anything - all articles failed to download.'
+            },
+            'analysis_summary': {
+                'overall_sentiment': 'UNKNOWN',
+                'primary_risk': 'UNKNOWN',
+                'volatility_level': 'UNKNOWN',
+                'trend_direction': 'UNKNOWN',
+                'attention_level': 'UNKNOWN'
+            },
+            'article_breakdown': []
+        }
+ 
+ 
+# ============================================================================
+# wrapper function so main.py can call it same as stage 1 and 2
+# ============================================================================
+ 
+def run_stage3_analyser(article_urls, product_name, sector):
+    controller = Stage3Controller(product_name, sector)
+    report = controller.analyse_articles(article_urls)
+    return report
